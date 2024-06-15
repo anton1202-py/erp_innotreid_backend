@@ -33,6 +33,10 @@ INSTALLED_APPS = [
     'import_export',
 
     # Custom applications
+    "apps.accounts",
+    "apps.companies",
+    "apps.marketplaceservice",
+    "apps.products",
 ]
 
 # Middleware configuration for processing requests and responses
@@ -45,9 +49,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'config.middlewares.middleware.JsonErrorResponseMiddleware',
-    'config.middlewares.middleware.Custom404Middleware',
-    'config.middlewares.middleware.SimpleJWTAuthenticationMiddleware',
+    'config.middleware.middleware.JsonErrorResponseMiddleware',
+    'config.middleware.middleware.Custom404Middleware',
+    'config.middleware.middleware.SimpleJWTAuthenticationMiddleware',
 ]
 
 # Root URL configuration
@@ -98,7 +102,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Localization settings
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_L10N = True
@@ -141,7 +145,7 @@ SIMPLE_JWT = {
 }
 
 # Custom user model (commented out, enable if using a custom user model)
-# AUTH_USER_MODEL = "auth_app.CustomUser"
+AUTH_USER_MODEL = "accounts.CustomUser"
 
 # CORS configuration for cross-origin requests
 CORS_ORIGIN_ALLOW_ALL = True
