@@ -1,5 +1,6 @@
 from django.contrib.auth.base_user import BaseUserManager
-
+from django.db.models import Manager, QuerySet
+from django.core.exceptions import ObjectDoesNotExist
 
 class CustomUserManager(BaseUserManager):
     """
@@ -58,3 +59,19 @@ class CustomUserManager(BaseUserManager):
 
         # Создаем обычного пользователя с привилегиями суперпользователя
         return self.create_user(username, password, **extra_fields)
+
+
+class CustomUserQueryset(QuerySet):
+
+    def filter_by_auther(self, user):
+        return self.filter(author_user=user)
+
+
+class CustomUsersManager(Manager):
+
+    def get_queryset(self) -> QuerySet:
+        return CustomUserQueryset(self.model, using=self._db)
+
+    def filter_by_auther(self, user):
+        return self.get_queryset().filter_by_auther(user)
+

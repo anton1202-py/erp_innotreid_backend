@@ -11,7 +11,7 @@ class CustomUserAdmin(UserAdmin):
     """
 
     # Fields displayed in the user list in admin
-    list_display = ('username', 'email', 'phone', 'is_staff', 'is_active')
+    list_display = ('username', 'email', 'phone', 'is_staff', 'is_active', 'author_user')
 
     # Fields by which the user list can be filtered
     list_filter = ('is_staff', 'is_active', 'date_joined')
@@ -22,7 +22,7 @@ class CustomUserAdmin(UserAdmin):
     # Fields for editing user details
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email', 'phone', 'avatar')}),
+        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email', 'phone', 'avatar', 'author_user')}),
         (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
         (_('Company info'), {'fields': ('company',)}),

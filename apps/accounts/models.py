@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 import uuid
 
-from apps.accounts.managers.manager import CustomUserManager
+from apps.accounts.managers.manager import CustomUserManager, CustomUsersManager
 from apps.companies.models import Company
 
 
@@ -14,6 +14,7 @@ class CustomUser(AbstractUser):
     """
 
     class Text:
+
         """
         Class to store textual messages used in the application.
         """
@@ -22,12 +23,7 @@ class CustomUser(AbstractUser):
         USER_WITH_SUCH_EMAIL_DOES_NOT_EXIST = _("User with this email does not exist")
 
     # Unique identifier for the user, used as primary key
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        verbose_name=_('Identifier')
-    )
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     # Phone number field for the user
     phone = models.CharField(
@@ -67,6 +63,15 @@ class CustomUser(AbstractUser):
         related_name='users'  # Changed related_name to 'users'
     )
 
+    # One-to-one relationship with self
+    author_user = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='author_company_user'
+    )
+
     # Field to denote if the user is active
     is_active = models.BooleanField(
         _('Active'),
@@ -85,8 +90,12 @@ class CustomUser(AbstractUser):
         default=timezone.now
     )
 
+    # Field to telegram chat id
+    chat_id = models.IntegerField(default=0, null=True, blank=True, verbose_name="Chat Id on telegram")
+
     # Manager for managing user objects
     objects = CustomUserManager()
+    obj = CustomUsersManager()
 
     # Field used for user authentication
     USERNAME_FIELD = "username"

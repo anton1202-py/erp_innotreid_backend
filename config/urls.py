@@ -35,6 +35,9 @@ urlpatterns = [
 
     # Add other application-specific URL patterns here
     # e.g., path('api/', include('myapp.urls')),
+    path('api/account/v1/', include('apps.accounts.urls')),
+    path('api/company/v1/', include('apps.companies.urls')),
+
 ]
 
 # If needed, add static file serving settings in development (not recommended for production)
