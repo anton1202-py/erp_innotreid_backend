@@ -18,7 +18,7 @@ class CompaniesView(APIView):
         responses={200: CompanySerializer(many=True)}
     )
     def get(self, request, *args, **kwargs):
-        companies = Company.objects.all()
+        companies = Company.obj.get_user_companies(request.user)
         serializer = CompanySerializer(companies, many=True, context={'request': request})
         return Response(serializer.data)
 
