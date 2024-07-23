@@ -63,7 +63,7 @@ class CustomUserManager(BaseUserManager):
 
 class CustomUserQueryset(QuerySet):
 
-    def filter_by_auther(self, user):
+    def filter_by_author(self, user):
         return self.filter(author_user=user)
 
 
@@ -73,5 +73,5 @@ class CustomUsersManager(Manager):
         return CustomUserQueryset(self.model, using=self._db)
 
     def filter_by_auther(self, user):
-        return self.get_queryset().filter_by_auther(user)
+        return self.get_queryset().filter_by_author(user)
 

@@ -102,7 +102,7 @@ class UserListSerializers(serializers.ModelSerializer):
 
 class CustomUserSerializer(serializers.ModelSerializer):
     groups = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), many=True)
-    avatar = serializers.ImageField(use_url=True, required=True)
+    avatar = serializers.ImageField(use_url=True, required=False)
     password = serializers.CharField(write_only=True)
 
     class Meta:
@@ -114,13 +114,13 @@ class CustomUserSerializer(serializers.ModelSerializer):
         groups_data = validated_data.pop('groups', None)
         password_data = validated_data.pop('password')
 
-        author = self.context.get('request')
+        author = self.context.get('request').user
 
         # Create the user instance without saving
         user = CustomUser(**validated_data)
 
         # Set author
-        user.author_user = author.user
+        user.author_user = author
 
         # Set password
         user.set_password(password_data)
@@ -128,11 +128,17 @@ class CustomUserSerializer(serializers.ModelSerializer):
         # Save the user instance to get a primary key
         user.save()
 
-        # Handle ManyToMany relationships
+        # Handle ManyToMany relationships after saving the user instance
         if groups_data:
             user.groups.set(groups_data)
 
+        # Save company list of user
+        companies = author.company.all()
+        for company in companies:
+            user.company.add(company)
+
         return user
+
 
     def update(self, instance, validated_data):
         instance.phone = validated_data.get('phone', instance.phone)

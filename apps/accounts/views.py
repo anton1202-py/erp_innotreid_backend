@@ -43,7 +43,7 @@ class CustomUserCreateView(APIView):
         responses={200: UserListSerializers(many=True)}
     )
     def get(self, request, *args, **kwargs):
-        users = CustomUser.obj.filter_by_auther(request.user)
+        users = CustomUser.obj.filter_by_author(request.user)
         serializer = UserListSerializers(users, many=True, context={'request': request})
         return Response(serializer.data)
 

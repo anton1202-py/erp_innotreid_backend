@@ -16,7 +16,7 @@ params = {
 }
 
 data = {
-    "product_id": 24067689
+    "product_id": 482172568
 }
 data_json = json.dumps(data)
 
