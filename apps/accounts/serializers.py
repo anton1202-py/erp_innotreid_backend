@@ -119,9 +119,6 @@ class CustomUserSerializer(serializers.ModelSerializer):
         # Create the user instance without saving
         user = CustomUser(**validated_data)
 
-        # Set author
-        user.author_user = author
-
         # Set password
         user.set_password(password_data)
 
@@ -137,8 +134,12 @@ class CustomUserSerializer(serializers.ModelSerializer):
         for company in companies:
             user.company.add(company)
 
-        return user
+        # Save user is parent user
+        user_parents = CustomUser.obj.get_parent_users()
+        for user_item in user_parents:
+            user.author_user.add(user_item)
 
+        return user
 
     def update(self, instance, validated_data):
         instance.phone = validated_data.get('phone', instance.phone)

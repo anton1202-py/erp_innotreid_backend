@@ -64,9 +64,8 @@ class CustomUser(AbstractUser):
     )
 
     # One-to-one relationship with self
-    author_user = models.ForeignKey(
+    author_user = models.ManyToManyField(
         'self',
-        on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name='author_company_user'

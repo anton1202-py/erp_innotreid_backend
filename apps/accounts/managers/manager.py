@@ -66,6 +66,11 @@ class CustomUserQueryset(QuerySet):
     def filter_by_author(self, user):
         return self.filter(author_user=user)
 
+    def get_parent_users(self):
+        if self.filter(groups__name__in=['Руководство компании']) is None:
+            return []
+        return self.filter(groups__name__in=['Руководство компании'])
+
 
 class CustomUsersManager(Manager):
 
@@ -75,3 +80,5 @@ class CustomUsersManager(Manager):
     def filter_by_auther(self, user):
         return self.get_queryset().filter_by_author(user)
 
+    def get_parent_users(self):
+        return self.get_queryset().get_parent_users()

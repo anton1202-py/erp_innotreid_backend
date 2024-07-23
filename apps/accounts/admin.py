@@ -11,7 +11,7 @@ class CustomUserAdmin(UserAdmin):
     """
 
     # Fields displayed in the user list in admin
-    list_display = ('username', 'email', 'phone', 'is_staff', 'is_active', 'author_user')
+    list_display = ('username', 'email', 'phone', 'is_staff', 'is_active')
 
     # Fields by which the user list can be filtered
     list_filter = ('is_staff', 'is_active', 'date_joined')
