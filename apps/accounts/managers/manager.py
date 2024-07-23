@@ -67,9 +67,9 @@ class CustomUserQueryset(QuerySet):
         return self.filter(author_user=user)
 
     def get_parent_users(self):
-        if self.filter(groups__name__in=['Руководство компании']) is None:
+        if self.filter(groups__name__in=['Начальник производства']) is None:
             return []
-        return self.filter(groups__name__in=['Руководство компании'])
+        return self.filter(groups__name__in=['Начальник производства'])
 
 
 class CustomUsersManager(Manager):
