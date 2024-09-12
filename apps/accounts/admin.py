@@ -22,10 +22,9 @@ class CustomUserAdmin(UserAdmin):
     # Fields for editing user details
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email', 'phone', 'avatar', 'author_user')}),
+        (_('Personal info'), {'fields': ('first_name', 'last_name', 'email', 'phone', 'avatar')}),
         (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
-        (_('Company info'), {'fields': ('company',)}),
     )
 
     # Fields required when creating a user in admin
@@ -33,14 +32,14 @@ class CustomUserAdmin(UserAdmin):
         (None, {
             'classes': ('wide',),
             'fields': (
-                'username', 'email', 'phone', 'password1', 'password2', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions', 'company'
+                'username', 'email', 'phone', 'password1', 'password2', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'
             ),
         }),
     )
 
     # Fields that must be unique for each user
     ordering = ('username', 'email')
-    filter_horizontal = ('groups', 'user_permissions', 'company')
+    filter_horizontal = ('groups', 'user_permissions')
 
 
 # Registering the CustomUser model and admin panel

@@ -37,19 +37,6 @@ class UserLoginSerializers(serializers.ModelSerializer):
         model = CustomUser
         fields = ['username', 'password']
 
-
-class CompanyListSerializers(serializers.ModelSerializer):
-    """
-    Serializer for listing companies.
-
-    This serializer serializes Company model fields for listing purposes.
-    """
-
-    class Meta:
-        model = Company
-        fields = "__all__"
-
-
 class UserProfileSerializers(serializers.ModelSerializer):
     """
     Serializer for user profile details.
@@ -58,12 +45,10 @@ class UserProfileSerializers(serializers.ModelSerializer):
     """
 
     groups = GroupSerializer(read_only=True, many=True)
-    company = CompanyListSerializers(read_only=True, many=True)
 
     class Meta:
         model = CustomUser
-        fields = ['uuid', 'username', 'groups', 'first_name', 'last_name', 'avatar', 'company', 'chat_id']
-
+        fields = ['id', 'username', 'groups', 'first_name', 'last_name', 'avatar', 'chat_id']
 
 class UserListSerializers(serializers.ModelSerializer):
     """
@@ -71,11 +56,10 @@ class UserListSerializers(serializers.ModelSerializer):
     """
 
     avatar = serializers.ImageField(max_length=None, allow_empty_file=True, required=False)
-    company = CompanyListSerializers(read_only=True, many=True)
 
     class Meta:
         model = CustomUser
-        fields = ['uuid', 'username', 'groups', 'first_name', 'last_name', 'avatar', 'company', 'chat_id', 'password']
+        fields = ['id', 'username', 'groups', 'first_name', 'last_name', 'avatar', 'chat_id', 'password']
         extra_kwargs = {
             'password': {'write_only': True},  # Ensure password field is write-only
         }
@@ -98,7 +82,6 @@ class UserListSerializers(serializers.ModelSerializer):
         instance.avatar = validated_data.get('avatar', instance.avatar)  # Update avatar if provided
         instance.save()
         return instance
-
 
 class CustomUserSerializer(serializers.ModelSerializer):
     groups = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), many=True)

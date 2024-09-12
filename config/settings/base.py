@@ -1,44 +1,42 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from decouple import config
+from celery.schedules import crontab
 
-# Set the base directory path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Security key for the Django application (keep it secret in production)
-SECRET_KEY = 'django-insecure-9%470x_op=s5@9yiwf$)b%xj2x9a#!140t=vk6-@d6d4nut%n='
+SECRET_KEY = config('SECRET_KEY')
 
-# Debug mode should be False in production
-DEBUG = False
+LOCAL_APPS = [
+    
+    'apps.company.apps.CompanyConfig',
+    'apps.marketplaceservice.apps.MarketplaceserviceConfig',
+    'apps.product.apps.ProductConfig',
+    'apps.accounts.apps.AccountsConfig',
+]
 
-# Hosts allowed to access the application
-ALLOWED_HOSTS = ["*"]
+THIRD_PARTY_APPS = [
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
+    'drf_spectacular',
+    'django_celery_results',
+    'django_celery_beat'
+]
 
-# Installed applications including Django apps, third-party apps, and custom apps
 INSTALLED_APPS = [
+    'django.contrib.contenttypes',
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third-party libraries
-    'rest_framework',
-    'rest_framework_simplejwt',
-    "corsheaders",
-    "drf_yasg",
-    "django_filters",
-    'import_export',
-
-    # Custom applications
-    "apps.accounts",
-    "apps.companies",
-    "apps.marketplaceservice",
-    "apps.products",
+    
+    *LOCAL_APPS,
+    *THIRD_PARTY_APPS,
 ]
 
-# Middleware configuration for processing requests and responses
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -48,20 +46,15 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'config.middleware.middleware.JsonErrorResponseMiddleware',
-    'config.middleware.middleware.Custom404Middleware',
-    'config.middleware.middleware.SimpleJWTAuthenticationMiddleware',
 ]
 
-# Root URL configuration
 ROOT_URLCONF = 'config.urls'
 
-# Templates configuration
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, "templates")],  # Directory for custom templates
-        'APP_DIRS': True,  # Enable template loading from installed apps
+        'DIRS': [],
+        'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
                 'django.template.context_processors.debug',
@@ -73,18 +66,9 @@ TEMPLATES = [
     },
 ]
 
-# WSGI application configuration
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
 
-# Database configuration
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',  # Using SQLite as the database engine
-        'NAME': BASE_DIR / 'db.sqlite3',  # Database file location
-    }
-}
-
-# Password validation settings
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -100,91 +84,116 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Localization settings
-LANGUAGE_CODE = 'ru'
+LANGUAGE_CODE = 'en-us'
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 200000
+
 TIME_ZONE = 'UTC'
+
 USE_I18N = True
-USE_L10N = True
-USE_TZ = True
 
-# Static files settings
-if DEBUG:
-    STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]  # Static files directory in debug mode
-else:
-    STATIC_ROOT = os.path.join(BASE_DIR, "static")  # Static files directory in production
+USE_TZ = False
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATIC_URL = "/static/"
+STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
-# Media files settings
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = 'media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Simple JWT authentication settings
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=50),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=3),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': False,
-    'UPDATE_LAST_LOGIN': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'ALLOWED_HOSTS': ['*'],
-    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
-    'SLIDING_TOKEN_LIFETIME_CLAIM': 'exp',
-    'SLIDING_TOKEN_REFRESH_LIFETIME_CLAIM': 'refresh_exp',
-}
+AUTH_USER_MODEL = 'accounts.CustomUser'
 
-# Custom user model (commented out, enable if using a custom user model)
-AUTH_USER_MODEL = "accounts.CustomUser"
-
-# CORS configuration for cross-origin requests
-CORS_ORIGIN_ALLOW_ALL = True
-CORS_ALLOW_CREDENTIALS = True
-CORS_ORIGIN_WHITELIST = True
-
-# Allowed CORS origins
-CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:8000",
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:5174",
-]
-
-# REST framework configuration
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly'
+    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.AllowAny',
-    ),
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
-    "NON_FIELD_ERRORS_KEY": "errors",
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
-    "DEFAULT_PARSER_CLASSES": (
-        "rest_framework.parsers.JSONParser",
-        "rest_framework.parsers.FormParser",
-        "rest_framework.parsers.MultiPartParser",
-    ),
-    'DATETIME_FORMAT': "%d.%m.%Y",
+    'DATETIME_FORMAT': "%Y-%m-%d %H:%M:%S",
 }
 
-# CSRF configuration for trusted origins
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173", 'https://*.mydomain.com',
-    'https://*.127.0.0.1', 'http://localhost', 'http://localhost:5174', 'http://127.0.0.1:8000',
-]
-CSRF_COOKIE_SECURE = False
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=7),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "ALGORITHM": "HS256",
+}
 
-# Maximum size for data upload (100 MB)
-DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 2 ** 20
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Innotrade API',
+    'DESCRIPTION': 'Innotrade',
+    'VERSION': '1.0.0',
+    'OAS_VERSION': '3.1.0',
+    'COMPONENT_SPLIT_REQUEST': True,
+    'CONTACT': {
+        'name': 'Anasxon Azamov',
+        'url': 'https://github.com/anasazamov',
+        'email': 'anasazamov55@gmail.com',
+        'phone_number': '+998990751735',
+        'telegram': 't.me/anasxon_azamov',
+    },
+    'SWAGGER_UI_SETTINGS': {
+        'defaultModelRendering': 'model',
+    },
+}
+
+CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Use Redis as the broker
+CELERY_RESULT_BACKEND = 'django-db'  # Store results in Django database
+CELERY_CACHE_BACKEND = 'django-cache'  # Use Django cache
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_TIMEZONE = 'UTC'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://localhost:6379/1',
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+CELERY_BEAT_SCHEDULE = {
+    'update-wildberries-sales': {
+        'task': 'apps.product.tasks.update_wildberries_sales',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update-wildberries-orders': {
+        'task': 'apps.product.tasks.update_wildberries_orders',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update-wildberries-stocks': {
+        'task': 'apps.product.tasks.update_wildberries_stocks',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update-ozon-sales': {
+        'task': 'apps.product.tasks.update_ozon_sales',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update-ozon-orders': {
+        'task': 'apps.product.tasks.update_ozon_orders',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update-ozon-stocks': {
+        'task': 'apps.product.tasks.update_ozon_stocks',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update_yandex_market_sales': {
+        'task': 'apps.product.tasks.update_yandex_market_sales',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update_yandex_market_orders': {
+        'task': 'apps.product.tasks.update_yandex_market_orders',
+        'schedule': crontab(minute='*/20'),
+    },
+    'update_yandex_stocks': {
+        'task': 'apps.product.tasks.update_yandex_stocks',
+        'schedule': crontab(minute='*/20'),
+    },
+}
+
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
