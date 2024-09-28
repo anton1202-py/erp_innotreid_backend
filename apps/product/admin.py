@@ -1,8 +1,10 @@
 from django.contrib import admin
 
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock, \
-      Recommendations, InProduction, Shelf, SortingWarehouse, WarehouseHistory
+      Recommendations, InProduction, Shelf, SortingWarehouse, WarehouseHistory, RecomamandationSupplier, PriorityShipments, \
+      ShipmentHistory, Shipment
 from django.db.models import Count
+from django_celery_results.models import TaskResult
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -12,7 +14,7 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(ProductSale)
 class ProductSaleAdmin(admin.ModelAdmin):
     list_display = ('vendor_code', 'marketplace_type')
-    search_fields = ['product__vendor_code',"id"]
+    search_fields = ['product__vendor_code',"id", "warehouse__id"]
     list_filter = ["marketplace_type","date"]
 
     def vendor_code(self, productsale_obj):
@@ -52,12 +54,13 @@ class ProductStockAdmin(admin.ModelAdmin):
     
 @admin.register(Warehouse)
 class WareHouseAdminView(admin.ModelAdmin):
-    search_fields=["name","oblast_okrug_name"]
-    
+    search_fields=["id","name","oblast_okrug_name"]
+    list_display = ["id","name", "oblast_okrug_name", "region_name"]    
     
 @admin.register(WarehouseForStock)
 class WareHouseForStockAdminView(admin.ModelAdmin):
-    search_fields=["name"]
+    search_fields=["id","name"]
+    list_display = ["id","name"]
     list_filter = ["marketplace_type"]
     
 @admin.register(Recommendations)
@@ -99,6 +102,43 @@ class WarehouseHistoryAdminView(admin.ModelAdmin):
 
     def vendor_code(self, recommandations: Recommendations):
         return recommandations.product.vendor_code
-    
 
+@admin.register(RecomamandationSupplier)
+class RecomamandationSupplierAdminView(admin.ModelAdmin):
+    list_display =["id", "vendor_code", "days_left","quantity", "marketplace_type"]
+    search_fields = ["product__vendor_code","warehouse__id"]
+    list_filter = ["marketplace_type"]
+
+    def vendor_code(self, recommandations: RecomamandationSupplier):
+        return recommandations.product.vendor_code
+
+@admin.register(PriorityShipments)
+class PriorityShipmentsrAdminView(admin.ModelAdmin):
+    
+    list_display =["id", "vendor_code", "travel_days","arrive_days", "marketplace_type", "sales", "sales_share","shipments_share","shipping_priority"]
+    search_fields = ["warehouse__id"]
+    list_filter = ["marketplace_type"]
+
+    def vendor_code(self, recommandations: PriorityShipments):
+        return recommandations.warehouse.region_name or recommandations.warehouse.oblast_okrug_name
+
+@admin.register(Shipment)
+class PriorityShipmentsrAdminView(admin.ModelAdmin):
+    
+    list_display =["id", "vendor_code", "shipment"]
+    search_fields = ["product__vendor_code"]
+    list_filter = ["company"]
+
+    def vendor_code(self, recommandations: Shipment):
+        return recommandations.product.vendor_code
+
+@admin.register(ShipmentHistory)
+class ShipmentHistoryAdminView(admin.ModelAdmin):
+    
+    list_display =["id", "vendor_code", "quantity", "date"]
+    search_fields = ["product__vendor_code"]
+    list_filter = ["company"]
+
+    def vendor_code(self, recommandations: ShipmentHistory):
+        return recommandations.product.vendor_code
 

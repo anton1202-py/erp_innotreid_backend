@@ -3,6 +3,7 @@ from django.core.paginator import Paginator
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter, OpenApiExample
 from apps.product.tasks import *
+from apps.company.permission_class import *
 from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.request import Request
@@ -10,13 +11,15 @@ from rest_framework.views import APIView
 from django_celery_results.models import TaskResult
 
 from apps.company.models import Company, CompanySettings
-from apps.product.models import Recommendations, InProduction, SortingWarehouse, Shelf, WarehouseHistory
+from apps.product.models import Recommendations, InProduction, SortingWarehouse, Shelf, WarehouseHistory, RecomamandationSupplier, PriorityShipments, \
+Shipment, ShipmentHistory
 from apps.company.serializers import CompanySerializer, CompanyCreateAndUpdateSerializers, CompaniesSerializers, \
     CompanySalesSerializer, CompanyOrdersSerializer, CompanyStocksSerializer, RecommendationsSerializer, \
     InProductionSerializer, InProductionUpdateSerializer, SortingWarehouseSerializer, WarehouseHistorySerializer, \
     SortingToWarehouseSeriallizer, ShelfUpdateSerializer, InventorySerializer, CreateInventorySerializer, \
-    SettingsSerializer
-from .tasks import update_recomendations
+    SettingsSerializer, RecomamandationSupplierSerializer, PriorityShipmentsSerializer, ShipmentSerializer,\
+    ShipmentCreateSerializer, ShipmentHistorySerializer, CreateShipmentHistorySerializer, UpdatePrioritySerializer
+from .tasks import update_recomendations, update_recomendation_supplier, update_priority
 
 COMPANY_SALES_PARAMETRS = [
     OpenApiParameter('page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description="Page number"),
@@ -36,11 +39,18 @@ COMPANY_WAREHOUSE_PARAMETRS = [
 ]
 
 class CompanyListView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        
+        if self.request.method == "POST":
+            self.permission_classes = [IsSuperUser]
+        else:
+            self.permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in self.permission_classes]
 
     @extend_schema(
         request=CompanyCreateAndUpdateSerializers,
-        description="Get all company",
+        description="Create company with marketplaces",
         tags=['Company'],
         responses={201: CompanyCreateAndUpdateSerializers()}
     )
@@ -67,12 +77,18 @@ class CompanyListView(APIView):
         responses={200: CompanySerializer(many=True)}
     )
     def get(self, request, *args, **kwargs):
-        companies = Company.objects.filter(owner=request.user)
+        companies = Company.objects.all()
         serializer = CompaniesSerializers(companies, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class CompanyDetailView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        
+        if self.request.method in ["POST", "PUT", "DELETE"]:
+            self.permission_classes = [IsSuperUser]
+        else:
+            self.permission_classes = [permissions.IsAuthenticated]
+        return [permission() for permission in self.permission_classes]
 
     @extend_schema(
         description="Get all company",
@@ -109,8 +125,8 @@ class CompanyDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class CompanySalesView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager ]
+        
     @extend_schema(
         description="Get all company",
         tags=['Company'],
@@ -126,7 +142,7 @@ class CompanySalesView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class CompanyOrdersView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager ]
 
     @extend_schema(
         description='Get all company orders',
@@ -145,7 +161,7 @@ class CompanyOrdersView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class CompanyStocksView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
 
     @extend_schema(
         description='Get all company stocks',
@@ -162,7 +178,7 @@ class CompanyStocksView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class RecommendationsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager ]
 
     @extend_schema(
         description='Get all company recommandations',
@@ -187,13 +203,13 @@ class RecommendationsView(APIView):
         else:
             recommendations = Recommendations.objects.filter(company=company, product__vendor_code__contains=article)
         
-        serializer = RecommendationsSerializer(recommendations,many=True)
-        paginator = Paginator(serializer.data, per_page=page_size)
+        paginator = Paginator(recommendations, per_page=page_size)
         page = paginator.get_page(page)
+        serializer = RecommendationsSerializer(page,many=True)
         return Response({"results": serializer.data, "product_count": len(serializer.data)}, status=status.HTTP_200_OK)
 
 class InProductionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker | IsMachineOperator]
 
     @extend_schema(
         description='Get all company inproductions (В производстве)',
@@ -218,15 +234,17 @@ class InProductionView(APIView):
         else:
             in_production = InProduction.objects.filter(company=company, product__vendor_code__contains=article)
         
-        serializer = InProductionSerializer(in_production,many=True)
-        paginator = Paginator(serializer.data, per_page=page_size)
+        
+        paginator = Paginator(in_production, per_page=page_size)
         page = paginator.get_page(page)
+        serializer = InProductionSerializer(page,many=True)
         return Response({"results": serializer.data, "product_count": len(serializer.data)}, status=status.HTTP_200_OK)
     
     @extend_schema(
         description='Create company inproductions (В производстве) via recomendations ids',
         tags=["In Productions (В производстве)"],
-        responses={201: InProductionSerializer(many=True)},
+        responses={201: InProductionSerializer(),
+                   200: InProductionSerializer()},
         request=InProductionSerializer,
         examples=[
         OpenApiExample(
@@ -242,15 +260,31 @@ class InProductionView(APIView):
     ])
     def post(self,request: Request, company_id):
         data = request.data
+        
+        in_productions = InProduction.objects.filter(recommendations=data['recommendations_id'])
+        if in_productions.exists():
+            
+            in_productions = in_productions.first()
+            in_productions.manufacture += data['application_for_production']
+            in_productions.save()
+            rec = get_object_or_404(Recommendations, id=data['recommendations_id'])
+            rec.quantity -= data['application_for_production']
+            rec.save()
+            serializer = InProductionSerializer(in_productions)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
         serializer = InProductionSerializer(data=data)
         if serializer.is_valid():
             in_productions = serializer.save()
             serializer = InProductionSerializer(in_productions)
+            rec = get_object_or_404(Recommendations, id=data['recommendations_id'])
+            rec.quantity -= data['application_for_production']
+            rec.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UpdateInProductionView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker | IsMachineOperator]
     
     @extend_schema(
         description='Update InProduction by id',
@@ -295,17 +329,21 @@ class UpdateInProductionView(APIView):
         ),
     ]
     )
+
     def patch(self, request, inproduction_id):
         
         in_production = get_object_or_404(InProduction,id=inproduction_id)
         produced = request.data.get("produced",0)
-        in_production.produced += produced
+        in_production.manufacture -= produced
         in_production.save()
         serializer = InProductionUpdateSerializer(in_production)
+        sorting, created_s = SortingWarehouse.objects.get_or_create(company=in_production.company,product=in_production.product)
+        sorting.unsorted += produced
+        sorting.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
              
 class SortingWarehouseView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker ]
 
     @extend_schema(
         description='Get all Sorting warehouse (В производстве)',
@@ -330,9 +368,10 @@ class SortingWarehouseView(APIView):
         else:
             sorting_warehouse = SortingWarehouse.objects.filter(company=company, product__vendor_code__contains=article)
         
-        serializer = SortingWarehouseSerializer(sorting_warehouse,many=True)
-        paginator = Paginator(serializer.data, per_page=page_size)
+        
+        paginator = Paginator(sorting_warehouse, per_page=page_size)
         page = paginator.get_page(page)
+        serializer = SortingWarehouseSerializer(page,many=True)
         return Response({"results": serializer.data, "product_count": len(serializer.data)}, status=status.HTTP_200_OK)
     
     @extend_schema(
@@ -352,7 +391,7 @@ class SortingWarehouseView(APIView):
 
 class WarehouseHistoryView(APIView):
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker ]
 
     @extend_schema(
         description="Get all company",
@@ -383,15 +422,16 @@ class WarehouseHistoryView(APIView):
         else:
             sorting_warehouse = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).distinct("product")
         context = {"date_from": date_from, "date_to": date_to}
-        serializer = WarehouseHistorySerializer(sorting_warehouse, context={'dates': context}, many=True)
         
-        paginator = Paginator(serializer.data, per_page=page_size)
+        
+        paginator = Paginator(sorting_warehouse, per_page=page_size)
         page = paginator.get_page(page)
         count = paginator.count
+        serializer = WarehouseHistorySerializer(page, context={'dates': context}, many=True)
         return Response({"results": serializer.data, "product_count": count}, status=status.HTTP_200_OK)
     
 class UpdateShelfView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker ]
     
     @extend_schema(
         description='Update shelf (Место)',
@@ -404,12 +444,17 @@ class UpdateShelfView(APIView):
         shelf = get_object_or_404(Shelf,id=shelf_id)
         serializer = ShelfUpdateSerializer(shelf,data=data)
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            history = WarehouseHistory.objects.get(shelf=instance)
+            stock = instance.stock
+            history.stock = stock
+            history.date = datetime.now()
+            history.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class InventoryView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker | IsMachineOperator]
 
     @extend_schema(
         description='Get all company inventory (В производстве)',
@@ -433,10 +478,9 @@ class InventoryView(APIView):
             in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article).order_by(f"{ordering_by_quantity}stock")
         else:
             in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article)
-        
-        serializer = InventorySerializer(in_production,many=True)
-        paginator = Paginator(serializer.data, per_page=page_size)
+        paginator = Paginator(in_production, per_page=page_size)
         page = paginator.get_page(page)
+        serializer = InventorySerializer(page,many=True)
         count = paginator.count
         return Response({"results": serializer.data, "product_count": count}, status=status.HTTP_200_OK)
     
@@ -450,7 +494,7 @@ class InventoryView(APIView):
     def post(self,request: Request, company_id):
         data = request.data
         get_object_or_404(Company,id=company_id)
-        get_object_or_404(Product,vendor_code=data['vendor_code'])
+        get_object_or_404(Product,id=data['product_id'])
         serializer = CreateInventorySerializer(data=data, context={"company_id": company_id})
         if serializer.is_valid():
             in_productions = serializer.save()
@@ -459,7 +503,7 @@ class InventoryView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class SettingsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser ]
 
     @extend_schema(
      description='Get company settings',
@@ -490,7 +534,7 @@ class SettingsView(APIView):
         return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
         
 class CalculationRecommendationView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager ]
     @extend_schema(
     description='Calculation recommendation',
     tags=["Recomamandations"],
@@ -498,17 +542,264 @@ class CalculationRecommendationView(APIView):
         )
     def get(self, request, company_id):
         company = get_object_or_404(Company, id=company_id)
-        task = update_recomendations.delay(company_id)
+        task = update_recomendation_supplier.delay(company_id)
+        update_recomendations.delay(company_id)
+        update_priority.delay(company_id)
         return Response({"message": "Calculation started", "task_id": task.id},status.HTTP_200_OK)
     
 class CheckTaskView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager ]
+    
     @extend_schema(
     description='Get the status of the recommendation calculation process',
     tags=["Recomamandations"],
     responses={200: {"message": "Calculation started", "task_id": 465456}}
         )
+    
     def get(self, request, task_id):
-        task_result = get_object_or_404(TaskResult, id=task_id)
+        
+        try:
+            task_result = TaskResult.objects.get(task_id=task_id)
+        except TaskResult.DoesNotExist:
+            return Response({"message": "Not found task"},status.HTTP_400_BAD_REQUEST)
         return Response({"status": task_result.status, "result": task_result.result},status.HTTP_200_OK)
     
+class RecomamandationSupplierView(APIView):
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
+
+    @extend_schema(
+        description="Get all Recomendation Supplier",
+        tags=['Recomendation Supplier (Рекомендации отгрузок)'],
+        responses={200: RecomamandationSupplierSerializer(many=True)},
+        parameters=COMPANY_WAREHOUSE_PARAMETRS + [OpenApiParameter('service', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Type of marketplace",enum=['wildberries', 'ozon', 'yandexmarket'])]
+    )
+    def get(self, request: Request, company_id):
+        
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 10))
+        article = request.query_params.get("article","")
+        sort = request.query_params.get('sort', "")
+        service = request.query_params.get('service', "")
+
+        company = get_object_or_404(Company,id=company_id)
+        
+        if sort and sort in ["Z-A", "A-Z"]:
+            ordering_by_alphabit = "-" if sort =="Z-A" else ""
+            supplier = RecomamandationSupplier.objects.filter(company=company, product__vendor_code__contains=article,marketplace_type__icontains=service).order_by(f"{ordering_by_alphabit}product__vendor_code").distinct("product")
+        else:
+            supplier = RecomamandationSupplier.objects.filter(company=company, product__vendor_code__contains=article,marketplace_type__icontains=service).distinct("product")
+        context = {"market": service}
+        
+        paginator = Paginator(supplier, per_page=page_size)
+        page = paginator.get_page(page)
+        count = paginator.count
+        serializer = RecomamandationSupplierSerializer(page, context=context, many=True)
+        if sort and sort in ["-1", "1"]:
+            ordering_by_quantity = False if sort =="-1" else True
+            data = sorted(serializer.data,key=lambda item: sum(d['quantity'] for d in item['data']), reverse=ordering_by_quantity)
+        else:
+            data = serializer.data
+        return Response({"results": data, "product_count": count}, status=status.HTTP_200_OK)
+
+COMPANY_PRIORITY_PARAMETRS = [
+    OpenApiParameter('page', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description="Page number"),
+    OpenApiParameter('page_size', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, description="Page size"),
+    OpenApiParameter('sort', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Sorting",enum=['travel_days', '-travel_days',"A-Z","Z-A",'arrive_days', '-arrive_days','sales', '-sales','shipments', '-shipments','sales_share', '-sales_share','shipments_share', '-shipments_share','shipping_priority', '-shipping_priority']),
+    OpenApiParameter('region_name', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Search by article"),
+]
+
+class PriorityShipmentsView(APIView):
+    [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
+
+    @extend_schema(
+        description="Get all Priority Shipments",
+        tags=['Priority Shipments (Приоритет отгрузок)'],
+        responses={200: PriorityShipmentsSerializer(many=True)},
+        parameters=COMPANY_PRIORITY_PARAMETRS + [OpenApiParameter('service', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Type of marketplace",enum=['wildberries', 'ozon', 'yandexmarket'])]
+    )
+    def get(self, request: Request, company_id):
+        
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 10))
+        warehouse = request.query_params.get("region_name","")
+        sort = request.query_params.get('sort', "")
+        service = request.query_params.get('service', "")
+
+        company = get_object_or_404(Company,id=company_id)
+        
+        if sort and sort in ["Z-A", "A-Z"]:
+            
+            ordering_by_alphabit = "-" if sort =="Z-A" else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{ordering_by_alphabit}warehouse__region_name")
+            
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{ordering_by_alphabit}warehouse__oblast_okrug_name")
+
+        elif sort and "travel_days" in sort:
+            reverse = "-" if "-" in sort  else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+        elif sort and "arrive_days" in sort:
+            reverse = "-" if "-" in sort  else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}arrive_days")
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+        elif sort and "sales" in sort:
+            reverse = "-" if "-" in sort  else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}sales")
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+        elif sort and "shipments" in sort:
+            reverse = "-" if "-" in sort  else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipments")
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+        elif sort and "sales_share" in sort:
+            reverse = "-" if "-" in sort  else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}sales_share")
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+        elif sort and "shipments_share" in sort:
+            reverse = "-" if "-" in sort  else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipments_share")
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+        elif sort and "shipping_priority" in sort:
+            reverse = "-" if "-" in sort  else ""
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipping_priority")
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+        else:
+            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service)
+            if not priority.exists():
+                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse)
+        
+        paginator = Paginator(priority, per_page=page_size)
+        page_obj = paginator.get_page(page)
+        serializer = PriorityShipmentsSerializer(page_obj, many=True)
+        count = paginator.count
+        return Response({"results": serializer.data, "product_count": count}, status=status.HTTP_200_OK)
+    
+class ShipmentView(APIView):
+    [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
+    
+    @extend_schema(
+        description="Get all Shipments",
+        tags=['Shipments (Отгрузок)'],
+        responses={200: PriorityShipmentsSerializer(many=True)},
+        parameters=COMPANY_WAREHOUSE_PARAMETRS + [OpenApiParameter('service', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Type of marketplace",enum=['wildberries', 'ozon', 'yandexmarket'])]
+    )
+    def get(self, request, company_id):
+
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 100))
+        article = request.query_params.get("article","")
+        sort = request.query_params.get('sort', "")
+
+        company = get_object_or_404(Company,id=company_id)
+        if sort in ["A-Z", "Z-A"]:
+            sort = "-" if sort=="Z-A" else ""
+            shipments = Shipment.objects.filter(company=company,product__vendor_code__contains=article).order_by(f"{sort}product__vendor_code")
+        elif sort in ["-1", "1"]:
+            sort = "-" if sort=="-1" else ""
+            shipments = Shipment.objects.filter(company=company,product__vendor_code__contains=article).order_by(f"{sort}shipment")
+        else:
+            shipments = Shipment.objects.filter(company=company,product__vendor_code__contains=article)
+        
+        
+        paginator = Paginator(shipments, per_page=page_size)
+        page = paginator.get_page(page)
+        count = paginator.count
+        serializer = ShipmentSerializer(page, many=True)
+        return Response({"results": serializer.data, "product_count": count}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        description="Recomendation Supplier to Shipment",
+        tags=['Shipments (Отгрузок)'],
+        responses={200: PriorityShipmentsSerializer(many=True)},
+        request=ShipmentCreateSerializer,
+    )
+    def post(self, request, company_id):
+        company = get_object_or_404(Company, id=company_id)
+        data  = request.data
+        serializer = ShipmentCreateSerializer(data=data)
+        
+        if serializer.is_valid():
+            shipment = serializer.save()
+            serializer = ShipmentSerializer(shipment, many=True)
+            return Response({"results": serializer.data}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ShipmentHistoryView(APIView):
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
+
+    @extend_schema(
+        description="Get all Shipment History",
+        tags=['Shipment History (История отгрузок)'],
+        responses={200: ShipmentHistorySerializer(many=True)},
+        parameters=COMPANY_WAREHOUSE_PARAMETRS + [OpenApiParameter('date_from', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Date from"), (OpenApiParameter('date_to', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Date to"))]
+    )
+    def get(self, request: Request, company_id):
+        
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 10))
+        article = request.query_params.get("article","")
+        date_from = request.query_params.get('date_from', None)
+        date_to = request.query_params.get('date_to', None)
+        sort = request.query_params.get('sort', "")
+        
+        date_from = datetime.strptime(date_from, '%Y-%m-%d').date() if date_from else datetime.now().date() - timedelta(days=6)
+        date_to = datetime.strptime(date_to, '%Y-%m-%d').date() if date_to else date_from + timedelta(days=7)
+
+        company = get_object_or_404(Company,id=company_id)
+        
+        if sort and sort in ["Z-A", "A-Z"]:
+            ordering_by_alphabit = "-" if sort =="Z-A" else ""
+            sorting_warehouse = ShipmentHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).order_by(f"{ordering_by_alphabit}product__vendor_code").distinct("product")
+        elif sort and sort in ["-1", "1"]:
+            ordering_by_quantity = "-" if sort =="-1" else ""
+            sorting_warehouse = ShipmentHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).order_by(f"{ordering_by_quantity}quantity").distinct("product")
+        else:
+            sorting_warehouse = ShipmentHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).distinct("product")
+            print(sorting_warehouse)
+        context = {"date_from": date_from, "date_to": date_to}
+        
+        
+        paginator = Paginator(sorting_warehouse, per_page=page_size)
+        page = paginator.get_page(page)
+        count = paginator.count
+        serializer = ShipmentHistorySerializer(page, context={'dates': context}, many=True)
+        return Response({"results": serializer.data, "product_count": count}, status=status.HTTP_200_OK)
+    
+    @extend_schema(
+        description="Shipment to Shipment History",
+        tags=['Shipment History (История отгрузок)'],
+        responses={201: ShipmentHistorySerializer(many=True)},
+        request=CreateShipmentHistorySerializer,
+    )
+    def post(self, request, company_id):
+        data = request.data
+        serializer = CreateShipmentHistorySerializer(data=data)
+        if serializer.is_valid():
+            ship_his = serializer.save()
+            return Response({"message": "success saved"}, status.HTTP_201_CREATED)
+        return Response(serializer.errors, status.HTTP_400_BAD_REQUEST)
+
+class ChangeRegionTimeView(APIView):
+    permission_classes = [IsSuperUser ]
+    @extend_schema(
+        description="Update Priority Shipment",
+        tags=['Priority Shipments (Приоритет отгрузок)'],
+        responses={200: PriorityShipmentsSerializer()},
+        request=UpdatePrioritySerializer,
+    )
+    def patch(self, request, priority_id):
+        priority = get_object_or_404(PriorityShipments, id=priority_id)
+        data = request.data
+        serializer = UpdatePrioritySerializer(instance=priority, data=data)
+        if serializer.is_valid():
+            priority = serializer.save()
+            serializer = PriorityShipmentsSerializer(priority)
+            return Response(serializer.data,status.HTTP_200_OK)
+        return Response(serializer.errors,status.HTTP_400_BAD_REQUEST)
