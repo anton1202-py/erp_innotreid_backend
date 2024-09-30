@@ -18,7 +18,8 @@ from apps.company.serializers import CompanySerializer, CompanyCreateAndUpdateSe
     InProductionSerializer, InProductionUpdateSerializer, SortingWarehouseSerializer, WarehouseHistorySerializer, \
     SortingToWarehouseSeriallizer, ShelfUpdateSerializer, InventorySerializer, CreateInventorySerializer, \
     SettingsSerializer, RecomamandationSupplierSerializer, PriorityShipmentsSerializer, ShipmentSerializer,\
-    ShipmentCreateSerializer, ShipmentHistorySerializer, CreateShipmentHistorySerializer, UpdatePrioritySerializer
+    ShipmentCreateSerializer, ShipmentHistorySerializer, CreateShipmentHistorySerializer, UpdatePrioritySerializer, \
+    CreateInventoryWithBarcodeSerializer
 from .tasks import update_recomendations, update_recomendation_supplier, update_priority
 
 COMPANY_SALES_PARAMETRS = [
@@ -472,12 +473,12 @@ class InventoryView(APIView):
         
         if sort and sort in ["Z-A", "A-Z"]:
             ordering_by_alphabit = "-" if sort =="Z-A" else ""
-            in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article).order_by(f"{ordering_by_alphabit}product__vendor_code")
+            in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article).order_by(f"{ordering_by_alphabit}product__vendor_code").distinct("product")
         elif sort and sort in ["-1", "1"]:
             ordering_by_quantity = "-" if sort =="-1" else ""
-            in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article).order_by(f"{ordering_by_quantity}stock")
+            in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article).order_by(f"{ordering_by_quantity}stock").distinct("product")
         else:
-            in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article)
+            in_production = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article).distinct("product")
         paginator = Paginator(in_production, per_page=page_size)
         page = paginator.get_page(page)
         serializer = InventorySerializer(page,many=True)
@@ -485,7 +486,7 @@ class InventoryView(APIView):
         return Response({"results": serializer.data, "product_count": count}, status=status.HTTP_200_OK)
     
     @extend_schema(
-        description='Add place',
+        description='Add place to existing in the list',
         tags=["Inventory (Инвентаризация)"],
         responses={201: InventorySerializer()},
         request=CreateInventorySerializer,
@@ -502,6 +503,26 @@ class InventoryView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+class AddNewProductInventory(APIView):
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker | IsMachineOperator]
+
+    @extend_schema(
+        description='Add place to not existing in the list',
+        tags=["Inventory (Инвентаризация)"],
+        responses={201: InventorySerializer()},
+        request=CreateInventoryWithBarcodeSerializer,
+        )
+    
+    def post(self,request: Request, company_id):
+        data = request.data
+        get_object_or_404(Company,id=company_id)
+        serializer = CreateInventoryWithBarcodeSerializer(data=data, context={"company_id": company_id})
+        if serializer.is_valid():
+            in_productions = serializer.save()
+            serializer = InventorySerializer(in_productions)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+   
 class SettingsView(APIView):
     permission_classes = [IsSuperUser ]
 
@@ -571,7 +592,7 @@ class RecomamandationSupplierView(APIView):
         description="Get all Recomendation Supplier",
         tags=['Recomendation Supplier (Рекомендации отгрузок)'],
         responses={200: RecomamandationSupplierSerializer(many=True)},
-        parameters=COMPANY_WAREHOUSE_PARAMETRS + [OpenApiParameter('service', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Type of marketplace",enum=['wildberries', 'ozon', 'yandexmarket'])]
+        parameters=COMPANY_WAREHOUSE_PARAMETRS + [OpenApiParameter('service', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Type of marketplace",enum=['wildberries', 'ozon', 'yandexmarket']),OpenApiParameter('region_name', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, description="Region name")]
     )
     def get(self, request: Request, company_id):
         
@@ -580,6 +601,7 @@ class RecomamandationSupplierView(APIView):
         article = request.query_params.get("article","")
         sort = request.query_params.get('sort', "")
         service = request.query_params.get('service', "")
+        region_name = request.query_params.get("region_name","")
 
         company = get_object_or_404(Company,id=company_id)
         
@@ -588,6 +610,9 @@ class RecomamandationSupplierView(APIView):
             supplier = RecomamandationSupplier.objects.filter(company=company, product__vendor_code__contains=article,marketplace_type__icontains=service).order_by(f"{ordering_by_alphabit}product__vendor_code").distinct("product")
         else:
             supplier = RecomamandationSupplier.objects.filter(company=company, product__vendor_code__contains=article,marketplace_type__icontains=service).distinct("product")
+        supplier = supplier.filter(warehouse__region_name__contains=region_name)
+        if not supplier.exists():
+            supplier = supplier.filter(warehouse__oblast_okrug_name__contains=region_name)
         context = {"market": service}
         
         paginator = Paginator(supplier, per_page=page_size)
@@ -609,7 +634,7 @@ COMPANY_PRIORITY_PARAMETRS = [
 ]
 
 class PriorityShipmentsView(APIView):
-    [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
 
     @extend_schema(
         description="Get all Priority Shipments",
@@ -682,7 +707,7 @@ class PriorityShipmentsView(APIView):
         return Response({"results": serializer.data, "product_count": count}, status=status.HTTP_200_OK)
     
 class ShipmentView(APIView):
-    [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
+    permission_classes = [IsSuperUser | IsProductionManager | IsManager | IsWarehouseWorker]
     
     @extend_schema(
         description="Get all Shipments",

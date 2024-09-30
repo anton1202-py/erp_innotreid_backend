@@ -176,7 +176,7 @@ class CompanySalesSerializer(serializers.ModelSerializer):
             date = date_from
             date_range = queryset.values("warehouse")
             for warehouse in date_range:
-                day_sales = queryset.filter(date__date=date, warehouse=warehouse).values('product__vendor_code').annotate(total_sales=Count('id'))
+                day_sales = queryset.filter(date__date=date, warehouse=warehouse,company=obj).values('product__vendor_code').annotate(total_sales=Count('id'))
                 for sale in day_sales:
                     product_code = sale['product__vendor_code']
                     if product_code not in results:
@@ -185,7 +185,7 @@ class CompanySalesSerializer(serializers.ModelSerializer):
         
         else:
             for date in date_range:
-                day_sales = queryset.filter(date__date=date).values('product__vendor_code').annotate(total_sales=Count('id'))
+                day_sales = queryset.filter(date__date=date,company=obj).values('product__vendor_code').annotate(total_sales=Count('id'))
                 for sale in day_sales:
                     product_code = sale['product__vendor_code']
                     if product_code not in results:
@@ -482,14 +482,9 @@ class SortingWarehouseSerializer(serializers.ModelSerializer):
         return obj.product.vendor_code
     
     def get_shelf(self, obj):
-        shelfs = Shelf.objects.filter(product=obj.product)
+        shelfs = Shelf.objects.filter(product=obj.product, company=obj.company).values("id","shelf_name","stock")
         dc = []
-        for shelf in shelfs:
-            pk = shelf.pk
-            name = shelf.shelf_name
-            stock = shelf.stock
-            dc.append({"id": pk,"shelf_name":name,"stock": stock})
-        return dc
+        return shelfs
     
 class WarehouseHistorySerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
@@ -629,23 +624,17 @@ class InventorySerializer(serializers.ModelSerializer):
         return {"vendor_code":obj.product.vendor_code,"product_id": obj.product.pk}
     
     def get_shelfs(self,obj):
-        shelfs = Shelf.objects.filter(product=obj.product)
-        dc = []
-        for shelf in shelfs:
-            pk = shelf.pk
-            name = shelf.shelf_name
-            stock = shelf.stock
-            dc.append({"id": pk,"shelf_name":name,"stock": stock})
-        return dc
+        shelfs = Shelf.objects.filter(product=obj.product,company=obj.company).values("id","shelf_name","stock")
+        return shelfs
     
     def get_total(self,obj):
-        total = Shelf.objects.filter(product=obj.product).aggregate(total=Sum("stock"))['total']
+        total = Shelf.objects.filter(product=obj.product,company=obj.company).aggregate(total=Sum("stock"))['total']
         if not total:
             total = 0
         return total
     
     def get_total_fact(self,obj):
-        total = WarehouseHistory.objects.filter(product=obj.product).aggregate(total=Sum("stock"))['total']
+        total = WarehouseHistory.objects.filter(product=obj.product, company=obj.company).aggregate(total=Sum("stock"))['total']
         if not total:
             total = 0
         return total
@@ -663,6 +652,41 @@ class CreateInventorySerializer(serializers.Serializer):
             stock = validated_data['stock']
             
             product = Product.objects.get(id=product_id)
+            company = Company.objects.get(id=company_id)
+
+            shelf, created = Shelf.objects.get_or_create(shelf_name=shelf_name,product=product,company=company)      
+            shelf.stock += stock
+            shelf.save()
+
+            warehouse_history, created = WarehouseHistory.objects.get_or_create(company=company,product=product,shelf=shelf)
+            warehouse_history.stock += stock
+            warehouse_history.save()
+
+            return warehouse_history
+
+class CreateInventoryWithBarcodeSerializer(serializers.Serializer):
+    barcode = serializers.CharField()
+    shelf_name = serializers.CharField()
+    stock = serializers.IntegerField()
+
+    def validate_barcode(self, value):
+        product = Product.objects.filter(barcode=value)
+        if not product.exists():
+            raise serializers.ValidationError("Not product with barcode")
+        return value
+    
+    def create(self, validated_data):
+        with transaction.atomic():
+            barcode = validated_data['barcode']
+            company_id = self.context['company_id']
+            shelf_name = validated_data['shelf_name']
+            stock = validated_data['stock']
+            
+            product = Product.objects.filter(id=barcode)
+            if product.filter(marketplace_type="wildberries"):
+                product = product.filter(marketplace_type="wildberries").first()
+            else:
+                product = product.first()
             company = Company.objects.get(id=company_id)
 
             shelf, created = Shelf.objects.get_or_create(shelf_name=shelf_name,product=product,company=company)      
@@ -695,7 +719,7 @@ class RecomamandationSupplierSerializer(serializers.ModelSerializer):
     def get_data(self, obj):
         product = obj.product
         market = self.context.get("market")
-        result = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market).select_related('warehouse').values('warehouse__region_name','days_left','quantity','warehouse__oblast_okrug_name')
+        result = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market, company=obj.company).select_related('warehouse').values('warehouse__region_name','days_left','quantity','warehouse__oblast_okrug_name')
         return [{
             "region_name": item["warehouse__region_name"] or item["warehouse__oblast_okrug_name"],
             "quantity": item["quantity"],
@@ -706,9 +730,9 @@ class RecomamandationSupplierSerializer(serializers.ModelSerializer):
         
         market = self.context.get("market")
         product = obj.product
-        rec = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market).aggregate(total=Sum("quantity"))
+        rec = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market,company=obj.company).aggregate(total=Sum("quantity"))
         rec = rec['total'] or 0
-        warehouse_s = WarehouseHistory.objects.filter(product=product).aggregate(total=Sum("stock"))
+        warehouse_s = WarehouseHistory.objects.filter(product=product,company=obj.company).aggregate(total=Sum("stock"))
         warehouse_s = warehouse_s["total"] or 0
         return rec > warehouse_s
 
