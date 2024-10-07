@@ -131,7 +131,7 @@ class ProductStock(models.Model):
         verbose_name = "Product stock"
         verbose_name_plural = "Product stocks"
         
-        unique_together = ('product', 'company', 'date', 'warehouse', 'marketplace_type')
+        unique_together = ('product', 'company', 'date', 'warehouse', 'marketplace_type',"quantity")
 
 class Recommendations(models.Model):
     
@@ -146,7 +146,7 @@ class Recommendations(models.Model):
         db_table = "recommendations"
         verbose_name = "Рекомендации"
         ordering = ["quantity"]
-        unique_together = ['company', 'product']
+        
 
 class InProduction(models.Model):
     
@@ -236,7 +236,6 @@ class PriorityShipments(models.Model):
 
 class Shipment(models.Model):
     
-    recomamand_supplier = models.ForeignKey(RecomamandationSupplier,on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     shipment = models.IntegerField(default=0)
     company = models.ForeignKey(Company,on_delete=models.CASCADE)
@@ -244,8 +243,7 @@ class Shipment(models.Model):
     def __str__(self) -> str:
         return self.product.vendor_code
     
-    class Meta:
-        unique_together = ["recomamand_supplier","product","company"]
+
     
 class ShipmentHistory(models.Model):
     
@@ -256,4 +254,12 @@ class ShipmentHistory(models.Model):
 
     def __str__(self) -> str:
         return self.product.vendor_code
+    
+class Inventory(models.Model):
+    
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    shelfs = models.ManyToManyField(Shelf)
+    total = models.IntegerField(default=0)
+    total_fact = models.IntegerField(default=0)
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
     

@@ -11,7 +11,7 @@ from apps.company.models import Company, CompanySettings
 from apps.marketplaceservice.models import Wildberries, Ozon, YandexMarket
 from apps.product.models import ProductStock, ProductSale, ProductOrder, WarehouseForStock, Recommendations, \
         InProduction, SortingWarehouse, Shelf, WarehouseHistory, Product, RecomamandationSupplier, PriorityShipments, \
-        Shipment, ShipmentHistory
+        Shipment, ShipmentHistory, Inventory
 from django.core.paginator import Paginator
 
 class CompanySerializer(serializers.ModelSerializer):
@@ -483,7 +483,7 @@ class SortingWarehouseSerializer(serializers.ModelSerializer):
     
     def get_shelf(self, obj):
         shelfs = Shelf.objects.filter(product=obj.product, company=obj.company).values("id","shelf_name","stock")
-        dc = []
+ 
         return shelfs
     
 class WarehouseHistorySerializer(serializers.ModelSerializer):
@@ -572,10 +572,17 @@ class SortingToWarehouseSeriallizer(serializers.ModelSerializer):
         sorting_warehouse.save()
 
         shelf, created = Shelf.objects.get_or_create(shelf_name=shelf_name,product=product,company=company)
+        shelf.stock += stock
+        shelf.save()
+        invontory, created = Inventory.objects.get_or_create(company=company,product=product)
+        invontory.total += stock
+        invontory.total_fact += stock
+        invontory.save()
+        invontory.shelfs.add(shelf)
         
         shelf.stock += stock
         shelf.save()
-        history, created = WarehouseHistory.objects.get_or_create(shelf=shelf,product=product,company=company)
+        history, created = WarehouseHistory.objects.get_or_create(product=product,company=company,shelf=shelf)
         history.stock += stock
         history.save()
 
@@ -599,45 +606,50 @@ class ShelfUpdateSerializer(serializers.ModelSerializer):
             product = instance.product
         shelf_name = validated_data.get("shelf_name",instance.shelf_name)
         stock = validated_data.get("stock", instance.stock)
-        
+        company = instance.company
+        difrence = instance.stock - stock
         instance.shelf_name = shelf_name
         instance.stock = stock
         instance.product = product
         instance.save()
-        
+
+        inventory = Inventory.objects.get(product=product, company=company)
+        inventory.total += difrence
+        inventory.total_fact += difrence
+        inventory.save()
+
         return instance
     
     def get_product(self,obj):
         return obj.product.vendor_code
-    
+
+class ShelfSerializer(serializers.Serializer):
+    class Meta:
+        model = Shelf
+        fields = "__all__"
+
 class InventorySerializer(serializers.ModelSerializer):
+    
     product = serializers.SerializerMethodField()
     shelfs = serializers.SerializerMethodField()
-    total = serializers.SerializerMethodField()
-    total_fact = serializers.SerializerMethodField()
+    total = serializers.IntegerField()
+    total_fact = serializers.IntegerField()
 
     class Meta:
-        model = WarehouseHistory
-        fields = ['product','shelfs','total','total_fact']
+        model = Inventory
+        fields = "__all__"
+
+    def get_shelfs(self, obj: Inventory):
+        shelfs = obj.shelfs.all().values("id","shelf_name", "stock")
+        return shelfs
 
     def get_product(self,obj):
         return {"vendor_code":obj.product.vendor_code,"product_id": obj.product.pk}
     
-    def get_shelfs(self,obj):
-        shelfs = Shelf.objects.filter(product=obj.product,company=obj.company).values("id","shelf_name","stock")
-        return shelfs
-    
-    def get_total(self,obj):
-        total = Shelf.objects.filter(product=obj.product,company=obj.company).aggregate(total=Sum("stock"))['total']
-        if not total:
-            total = 0
-        return total
-    
-    def get_total_fact(self,obj):
-        total = WarehouseHistory.objects.filter(product=obj.product, company=obj.company).aggregate(total=Sum("stock"))['total']
-        if not total:
-            total = 0
-        return total
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep.pop("company")
+        return rep
 
 class CreateInventorySerializer(serializers.Serializer):
     product_id = serializers.IntegerField()
@@ -658,11 +670,14 @@ class CreateInventorySerializer(serializers.Serializer):
             shelf.stock += stock
             shelf.save()
 
-            warehouse_history, created = WarehouseHistory.objects.get_or_create(company=company,product=product,shelf=shelf)
-            warehouse_history.stock += stock
-            warehouse_history.save()
+            inventory, created = Inventory.objects.get_or_create(company=company,product=product)
+            inventory.total += stock
+            inventory.total_fact += stock
+            
+            inventory.save()
+            inventory.shelfs.add(shelf)
 
-            return warehouse_history
+            return inventory
 
 class CreateInventoryWithBarcodeSerializer(serializers.Serializer):
     barcode = serializers.CharField()
@@ -682,22 +697,27 @@ class CreateInventoryWithBarcodeSerializer(serializers.Serializer):
             shelf_name = validated_data['shelf_name']
             stock = validated_data['stock']
             
-            product = Product.objects.filter(id=barcode)
+            product = Product.objects.filter(barcode=barcode)
             if product.filter(marketplace_type="wildberries"):
                 product = product.filter(marketplace_type="wildberries").first()
             else:
                 product = product.first()
             company = Company.objects.get(id=company_id)
-
+            print(product)
             shelf, created = Shelf.objects.get_or_create(shelf_name=shelf_name,product=product,company=company)      
             shelf.stock += stock
             shelf.save()
 
-            warehouse_history, created = WarehouseHistory.objects.get_or_create(company=company,product=product,shelf=shelf)
+            inventory, created = Inventory.objects.get_or_create(company=company,product=product)
+            inventory.shelfs.add(shelf)
+            inventory.total += stock
+            inventory.save()
+
+            warehouse_history, created = WarehouseHistory.objects.get_or_create(product=product,company=company,date=datetime.datetime.now(), shelf=shelf)
             warehouse_history.stock += stock
             warehouse_history.save()
 
-            return warehouse_history
+            return inventory
 
 class SettingsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -719,12 +739,18 @@ class RecomamandationSupplierSerializer(serializers.ModelSerializer):
     def get_data(self, obj):
         product = obj.product
         market = self.context.get("market")
-        result = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market, company=obj.company).select_related('warehouse').values('warehouse__region_name','days_left','quantity','warehouse__oblast_okrug_name')
-        return [{
-            "region_name": item["warehouse__region_name"] or item["warehouse__oblast_okrug_name"],
-            "quantity": item["quantity"],
-            "days_left": item["quantity"]
-        } for item in result]
+        warehouse = self.context.get("region_obj",None)
+        result = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market, company=obj.company).select_related('warehouse').distinct("warehouse").values('warehouse__region_name','warehouse__id','days_left','quantity','warehouse__oblast_okrug_name')
+        if warehouse:
+            result = result.filter(warehouse_id__in=warehouse)
+        # dc = [{
+        #     "region_name": item["warehouse__region_name"] ,
+        #     "oblast_okrug_name": item["warehouse__oblast_okrug_name"],
+        #     "warehouse_id": item["warehouse__id"],
+        #     "quantity": item["quantity"],
+        #     "days_left": item["quantity"]
+        # } for item in result]
+        return result
 
     def get_is_red(self, obj):
         
@@ -792,18 +818,39 @@ class ShipmentCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         
         recomamandation_supplier_ids = validated_data['recomamandation_supplier_ids']
-        recomamandation_supplier = RecomamandationSupplier.objects.filter(id__in=recomamandation_supplier_ids).values("id","product","company")
+        recomamandation_supplier_q = RecomamandationSupplier.objects.filter(id__in=recomamandation_supplier_ids)
+        recomamandation_supplier = recomamandation_supplier_q.values("id","product","company")
         shipment = []
         
         for item in recomamandation_supplier:
-            product = item['product']
-            rec_sup = item['id']
-            company = item['company']
-            total = RecomamandationSupplier.objects.filter(product=product,company=company).aggregate(total=Sum("quantity"))['total']
             
-            shipment.append(Shipment(recomamand_supplier_id=rec_sup,product_id=product,shipment=total,company_id=company))
+            product = Product.objects.get(id = item['product'])
+            vendor_code = Product.objects.get(id = item['product']).vendor_code
+            rec_sup = RecomamandationSupplier.objects.get(id=item['id'])
+            marketplace_type = RecomamandationSupplier.objects.get(id=item['id']).marketplace_type
+            company = Company.objects.get(id=item['company'])
+            total = RecomamandationSupplier.objects.filter(product__vendor_code=vendor_code,company=company, marketplace_type=marketplace_type)
+            total_sum = total.aggregate(total=Sum("quantity"))['total']
 
-        return Shipment.objects.bulk_create(shipment,ignore_conflicts=True)
+            product_shipment = Shipment.objects.filter(product__vendor_code=vendor_code, company=company)
+            
+            if product_shipment.exists():
+                
+                product = product_shipment.first().pk
+                product_shipment = Shipment.objects.get(id=product)
+                product_shipment.shipment += total_sum
+                product_shipment.save()
+                total.delete()
+                continue
+            
+            shipment.append(Shipment(product=product,shipment=total_sum,company=company))
+            total.delete()
+        if shipment:
+            shipment = Shipment.objects.bulk_create(shipment,ignore_conflicts=True)
+        else:
+            shipment = [Shipment.objects.last()]
+        recomamandation_supplier_q.delete()
+        return shipment
 
 class ShipmentHistorySerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
@@ -882,6 +929,11 @@ class CreateShipmentHistorySerializer(serializers.Serializer):
                 warehouse_history = WarehouseHistory.objects.create(product=product, company=company, date=datetime.datetime.now(),stock=-ship_t, shelf=shelf_stock)
                 shelf_stock.delete()
 
+        inventory = Inventory.objects.get(company=company, product=product)
+        inventory.total -= ship_t
+        inventory.total_fact -= ship_t
+        inventory.save()
+
         return shipment
 
 class UpdatePrioritySerializer(serializers.Serializer):
@@ -893,5 +945,19 @@ class UpdatePrioritySerializer(serializers.Serializer):
         travel_days = validated_data['travel_days']
         instance.travel_days = travel_days
         instance.arrive_days = arrive_days
+        instance.save()
+        return instance
+    
+class UpdateInventorySerializer(serializers.Serializer):
+    
+    total_fact = serializers.IntegerField()
+
+    def update(self, instance: Inventory, validated_data):
+        
+        total_fact = validated_data.get("total_fact", instance.total_fact)
+
+        
+        instance.total_fact = total_fact
+
         instance.save()
         return instance

@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock, \
       Recommendations, InProduction, Shelf, SortingWarehouse, WarehouseHistory, RecomamandationSupplier, PriorityShipments, \
-      ShipmentHistory, Shipment
+      ShipmentHistory, Shipment, Inventory
 from django.db.models import Count
 from django_celery_results.models import TaskResult
 
@@ -13,8 +13,8 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(ProductSale)
 class ProductSaleAdmin(admin.ModelAdmin):
-    list_display = ('vendor_code', 'marketplace_type')
-    search_fields = ['product__vendor_code',"id", "warehouse__id"]
+    list_display = ('vendor_code', 'marketplace_type','date')
+    search_fields = ['product__vendor_code',"id", "warehouse__id","date"]
     list_filter = ["marketplace_type","date"]
 
     def vendor_code(self, productsale_obj):
@@ -54,7 +54,7 @@ class ProductStockAdmin(admin.ModelAdmin):
     
 @admin.register(Warehouse)
 class WareHouseAdminView(admin.ModelAdmin):
-    search_fields=["id","name","oblast_okrug_name"]
+    search_fields=["id","name","region_name"]
     list_display = ["id","name", "oblast_okrug_name", "region_name"]    
     
 @admin.register(WarehouseForStock)
@@ -140,5 +140,15 @@ class ShipmentHistoryAdminView(admin.ModelAdmin):
     list_filter = ["company"]
 
     def vendor_code(self, recommandations: ShipmentHistory):
+        return recommandations.product.vendor_code
+
+@admin.register(Inventory)
+class InventoryAdminView(admin.ModelAdmin):
+    
+    list_display =["id", "vendor_code", "total", "total_fact"]
+    search_fields = ["product__vendor_code"]
+    list_filter = ["company"]
+
+    def vendor_code(self, recommandations: Inventory):
         return recommandations.product.vendor_code
 
