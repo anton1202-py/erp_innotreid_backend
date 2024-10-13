@@ -147,7 +147,6 @@ class Recommendations(models.Model):
         verbose_name = "Рекомендации"
         ordering = ["quantity"]
         
-
 class InProduction(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, unique=True)

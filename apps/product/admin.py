@@ -1,5 +1,6 @@
 from django.contrib import admin
 
+
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock, \
       Recommendations, InProduction, Shelf, SortingWarehouse, WarehouseHistory, RecomamandationSupplier, PriorityShipments, \
       ShipmentHistory, Shipment, Inventory
@@ -8,8 +9,9 @@ from django_celery_results.models import TaskResult
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['vendor_code',"id"]
+    list_display = ['vendor_code',"id", "marketplace_type"]
     search_fields = ['vendor_code', "id"]
+    list_filter = ["marketplace_type"]
 
 @admin.register(ProductSale)
 class ProductSaleAdmin(admin.ModelAdmin):

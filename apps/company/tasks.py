@@ -21,39 +21,34 @@ def update_recomendations(company):
     products_st = ProductStock.objects.filter(company=company).order_by("product_id").distinct("product_id").values_list('product', flat=True).distinct()
     combined_product_ids = set(products_s) | set(products_o) | set(products_st)
 
-    products = Product.objects.filter(id__in=combined_product_ids).order_by("id").distinct("id").values("id")
+    products = Product.objects.filter(id__in=combined_product_ids).order_by("vendor_code").distinct("vendor_code").values("vendor_code")
 
-    
-
-    shelf_stocks = Shelf.objects.filter(product__in=products, company=company).values('product').annotate(total_stock=Sum('stock'))
-    sorting_stocks = SortingWarehouse.objects.filter(product__in=products, company=company)
+    shelf_stocks = Shelf.objects.filter(product__vendor_code__in=products, company=company).values('product__vendor_code').annotate(total_stock=Sum('stock'))
+    sorting_stocks = SortingWarehouse.objects.filter(product__vendor_code__in=products, company=company)
     
     recommendations = Recommendations.objects.filter(company=company).delete()
     recommendations = []
-    total = 0
+    
     for sale in products:
 
-        product = sale['id']
+        product = sale['vendor_code']
         
-        barcode = Product.objects.get(id=int(product)).barcode
-        product_w = Product.objects.filter(barcode=barcode,marketplace_type="wildberries")
-        
+        product = Product.objects.filter(vendor_code=product)
+        product_w = product.filter(marketplace_type="wildberries")
         if product_w.exists():
             product = product_w.first()
         else:
-            product = Product.objects.get(id=int(product))
-        total_sale = ProductSale.objects.filter(product=product,company=company, date__date__gte=date_from, date__date__lte=date_to).count()
-                        
-        warehouses = ProductStock.objects.filter(product=product,company=company).values_list("warehouse")
+            product = product.first()
+        total_sale = ProductOrder.objects.filter(product__vendor_code=product.vendor_code,company=company, date__date__gte=date_from, date__date__lte=date_to).count()
         
-        shelf_stock = shelf_stocks.filter(product=product,company=company).order_by("product")
+        shelf_stock = shelf_stocks.filter(product__vendor_code=product.vendor_code,company=company).order_by("product")
         if shelf_stock.exists():
             shelf_stock = shelf_stock.first()
             shelf_stock = shelf_stock['total_stock']
         else:
             shelf_stock = 0
-        sorting = sorting_stocks.filter(product=product).aggregate(total=Sum("unsorted"))["total"]
-        in_production = InProduction.objects.filter(product=product,company=company)
+        sorting = sorting_stocks.filter(product__vendor_code=product.vendor_code).aggregate(total=Sum("unsorted"))["total"]
+        in_production = InProduction.objects.filter(product__vendor_code=product.vendor_code,company=company)
         if in_production.exists():
             in_production = in_production.aggregate(total=Sum("manufacture"))["total"]
         else:
@@ -61,11 +56,16 @@ def update_recomendations(company):
         
         if not sorting:
             sorting = 0
-        stock = ProductStock.objects.filter(company=company,product=product)
+        
+        summ = 0
+        stock = ProductStock.objects.filter(company=company,product__vendor_code=product.vendor_code)
+        
         if stock.exists():
-            stock = stock.latest("date").quantity
+            date = stock.latest("date").date
+            stock = stock.filter(date=date).aggregate(total=Sum("quantity"))["total"]
         else:
             stock = 0
+
         avg_sale = total_sale/last_sale_days
         
         try:
@@ -79,12 +79,13 @@ def update_recomendations(company):
             if stock + in_production + shelf_stock + sorting == 0:
                 recommend = 30
             recommendations.append(Recommendations(company=company,product=product, quantity=recommend,days_left=days_left))
-
+            
     build = Recommendations.objects.bulk_create(recommendations)
     return True
 
 @app.task
 def update_recomendation_supplier(company):
+    
     settings = CompanySettings.objects.get(company=company)
     last_sale_days = settings.last_sale_days
     next_sale_days = settings.next_sale_days
@@ -92,19 +93,35 @@ def update_recomendation_supplier(company):
     date_from = date_to - timedelta(days=last_sale_days)
     company = Company.objects.get(id=company)
 
-    products = ProductSale.objects.filter(company=company).order_by("product_id").distinct("product_id").values_list("product_id",flat=True)
+    products = ProductOrder.objects.filter(company=company).order_by("product_id").distinct("product_id").values_list("product_id",flat=True)
     
     for item in products:
-        warehouses_w = ProductSale.objects.filter(product=item, marketplace_type="wildberries").values_list("warehouse", flat=True)
-        warehouses_o = ProductSale.objects.filter(product=item, marketplace_type="ozon").values_list("warehouse", flat=True)
-        warehouses_y = ProductSale.objects.filter(product=item, marketplace_type="yandexmarket").values_list("warehouse", flat=True)
+        warehouses_w = ProductOrder.objects.filter(product=item, marketplace_type="wildberries")
+        if warehouses_w.exists():
+            warehouses_w = warehouses_w.filter(date__date__gte=date_from,date__date__lte=date_to).values_list("warehouse", flat=True)
+        else:
+            warehouses_w = []
+
+        warehouses_o = ProductOrder.objects.filter(product=item, marketplace_type="ozon")
+        if warehouses_o.exists():
+            
+            warehouses_o = warehouses_o.filter(date__date__gte=date_from,date__date__lte=date_to).values_list("warehouse", flat=True)
+        else:
+            warehouses_o = []
+        
+        warehouses_y = ProductOrder.objects.filter(product=item, marketplace_type="yandexmarket")
+        if warehouses_y.exists():
+            warehouses_y = warehouses_y.filter(date__date__gte=date_from,date__date__lte=date_to).values_list("warehouse", flat=True)
+        else:
+            warehouses_y = []
+
         item = Product.objects.get(id=item)
         
         for w_item in warehouses_w:
             
             name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
-            sale = ProductSale.objects.filter(product=item, warehouse=w_item, date__range=(date_from,date_to),marketplace_type="wildberries").count()
+            sale = ProductOrder.objects.filter(product=item, warehouse=w_item, date__range=(date_from,date_to),marketplace_type="wildberries").count()
             shelf = Shelf.objects.filter(product=item)
             stock_w = WarehouseForStock.objects.filter(name=name)
             
@@ -112,7 +129,8 @@ def update_recomendation_supplier(company):
                 stock_w = stock_w.first()
                 stock = ProductStock.objects.filter(product=item,warehouse=stock_w,marketplace_type="wildberries",company=company)
                 if stock.exists():
-                    stock = stock.latest("date").quantity
+                    date = stock.latest("date").date
+                    stock = stock.filter(date=date).aggregate(total=Sum("quantity"))['total']
                 else:
                     stock = 0
             else:
@@ -167,7 +185,8 @@ def update_recomendation_supplier(company):
                 stock_w = stock_w.first()
                 stock = ProductStock.objects.filter(product=item,warehouse=stock_w,marketplace_type="ozon", company=company)
                 if stock.exists():
-                    stock = stock.latest("date").quantity
+                    date = stock.latest("date").date
+                    stock = stock.filter(date=date).aggregate(total=Sum("quantity"))['total']
                 else:
                     stock = 0
             else:
@@ -224,7 +243,8 @@ def update_recomendation_supplier(company):
                 stock_w = stock_w.first()
                 stock = ProductStock.objects.filter(product=item,warehouse=stock_w,marketplace_type="yandexmarket",company=company)
                 if stock.exists():
-                    stock = stock.latest("date").quantity
+                    date = stock.latest("date").date
+                    stock = stock.filter(date=date).aggregate(total=Sum("quantity"))['total']
                 else:
                     stock = 0
             else:

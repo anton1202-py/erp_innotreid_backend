@@ -14,4 +14,4 @@ app.conf.enable_utc = False
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
-app.conf.beat_schedule = CELERY_BEAT_SCHEDULE
+
