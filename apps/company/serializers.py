@@ -440,7 +440,7 @@ class InProductionSerializer(serializers.Serializer):
     def validate_recommendations_id(self, value):
         
         errors = []
-        print(value)
+        
         if not Recommendations.objects.filter(id=value).exists():
             errors.append(f" Not found is Recommendations with UUID : {value}")
         if errors:
@@ -708,7 +708,7 @@ class CreateInventoryWithBarcodeSerializer(serializers.Serializer):
             else:
                 product = product.first()
             company = Company.objects.get(id=company_id)
-            print(product)
+            
             shelf, created = Shelf.objects.get_or_create(shelf_name=shelf_name,product=product,company=company)      
             shelf.stock += stock
             shelf.save()

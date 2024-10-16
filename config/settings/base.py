@@ -157,42 +157,13 @@ CACHES = {
 }
 
 CELERY_BEAT_SCHEDULE = {
-    'update-wildberries-sales': {
-        'task': 'apps.product.tasks.update_wildberries_sales',
-        'schedule': crontab(minute='*/20'),
-    },
-    'update-wildberries-orders': {
-        'task': 'apps.product.tasks.update_wildberries_orders',
-        'schedule': crontab(minute='*/20'),
-    },
+    'synchronous-algorithm': {
+        'task': 'apps.product.tasks.synchronous_algorithm',
+        'schedule': crontab(minute='*/20')},
     'update-wildberries-stocks': {
         'task': 'apps.product.tasks.update_wildberries_stocks',
-        'schedule': crontab(minute=0, hour=5),
-    },
-    'update-ozon-sales': {
-        'task': 'apps.product.tasks.update_ozon_sales',
-        'schedule': crontab(minute='*/20'),
-    },
-    'update-ozon-orders': {
-        'task': 'apps.product.tasks.update_ozon_orders',
-        'schedule': crontab(minute='*/20'),
-    },
-    'update-ozon-stocks': {
-        'task': 'apps.product.tasks.update_ozon_stocks',
-        'schedule': crontab(minute='*/20'),
-    },
-    'update_yandex_market_sales': {
-        'task': 'apps.product.tasks.update_yandex_market_sales',
-        'schedule': crontab(minute='*/20'),
-    },
-    'update_yandex_market_orders': {
-        'task': 'apps.product.tasks.update_yandex_market_orders',
-        'schedule': crontab(minute='*/20'),
-    },
-    'update_yandex_stocks': {
-        'task': 'apps.product.tasks.update_yandex_stocks',
-        'schedule': crontab(minute='*/20'),
-    },
+        'schedule': crontab(minute=0,hour=5)}
+    
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
