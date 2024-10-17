@@ -959,8 +959,7 @@ def update_yandex_stocks():
 
                     if not yandexmarket_product and not wildberries_product:
 
-                        new_product = Product(vendor_code=vendor_code, marketplace_type="yandexmarket", barcode=barcode)
-                        products_to_create.append(new_product)
+                        new_product, _ = Product.objects.get_or_create(vendor_code=vendor_code, marketplace_type="yandexmarket", barcode=barcode)
                         product_stocks_to_create.append(
                             ProductStock(
                                 product=new_product,
@@ -1014,7 +1013,7 @@ def update_yandex_stocks():
                             )
                         )
                 else:
-                    new_product = Product.objects.create(vendor_code=vendor_code, barcode=barcode, marketplace_type="yandexmarket")
+                    new_product, _ = Product.objects.get_or_create(vendor_code=vendor_code, barcode=barcode, marketplace_type="yandexmarket")
                     
                     product_stocks_to_create.append(
                         ProductStock(
