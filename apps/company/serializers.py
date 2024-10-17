@@ -579,14 +579,13 @@ class SortingToWarehouseSeriallizer(serializers.ModelSerializer):
         shelf, created = Shelf.objects.get_or_create(shelf_name=shelf_name,product=product,company=company)
         shelf.stock += stock
         shelf.save()
+        
         invontory, created = Inventory.objects.get_or_create(company=company,product=product)
         invontory.total += stock
         invontory.total_fact += stock
         invontory.save()
         invontory.shelfs.add(shelf)
         
-        shelf.stock += stock
-        shelf.save()
         history, created = WarehouseHistory.objects.get_or_create(product=product,company=company,shelf=shelf)
         history.stock += stock
         history.save()
@@ -609,6 +608,7 @@ class ShelfUpdateSerializer(serializers.ModelSerializer):
             product = Product.objects.get(vendor_code=validated_data['product'])
         except:
             product = instance.product
+
         shelf_name = validated_data.get("shelf_name",instance.shelf_name)
         stock = validated_data.get("stock", instance.stock)
         company = instance.company
@@ -619,6 +619,10 @@ class ShelfUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         inventory = Inventory.objects.get(product=product, company=company)
+        date = datetime.datetime.now()
+        warehouse_history, _ = WarehouseHistory.objects.get_or_create(product=product, company=company,date=date,shelf=instance)
+        warehouse_history.stock = difrence
+        warehouse_history.save()
         inventory.total += difrence
         inventory.total_fact += difrence
         inventory.save()
