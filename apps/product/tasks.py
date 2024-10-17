@@ -91,7 +91,7 @@ def update_wildberries_sales():
 
                 if (product, date, warehouse) not in existing_sales_set:
                     sales_to_create.append(ProductSale(
-                        product=product or Product.objects.create(vendor_code=item['supplierArticle'], barcode=barcode, marketplace_type="wildberries"),
+                        product=product or Product.objects.get_or_create(vendor_code=item['supplierArticle'], barcode=barcode, marketplace_type="wildberries")[0],
                         company=company,
                         date=date,
                         marketplace_type="wildberries",
@@ -494,7 +494,7 @@ def update_ozon_stocks():
                 ozon_product = Product.objects.filter(barcode=barcode, marketplace_type='ozon').first()
 
                 if not ozon_product and not wildberries_product:
-                    product = Product.objects.get_or_create(vendor_code=vendor_code, marketplace_type="ozon", barcode=barcode)
+                    product, _ = Product.objects.get_or_create(vendor_code=vendor_code, marketplace_type="ozon", barcode=barcode)
                     stocks_to_create.append(ProductStock(product=product, company=company, date=date, warehouse=warehouse, marketplace_type="ozon", quantity=quantity))
                 elif ozon_product and wildberries_product:
                     product_sale_w = ProductStock.objects.filter(product=wildberries_product, company=company, date=date, warehouse=warehouse, marketplace_type="ozon", quantity=quantity).first()
@@ -673,7 +673,7 @@ def update_yandex_market_sales():
 
                         if not yandexmarket_product and not wildberries_product:
 
-                            new_product = Product.objects.get_or_create(vendor_code=vendor_code, marketplace_type="yandexmarket", barcode=barcode)
+                            new_product, _ = Product.objects.get_or_create(vendor_code=vendor_code, marketplace_type="yandexmarket", barcode=barcode)
                             
                             product_sales_to_create.append(
                                 ProductSale(
@@ -719,7 +719,7 @@ def update_yandex_market_sales():
                                 )
                             )
                     else:
-                        new_product = Product.objects.get_or_create(vendor_code=vendor_code, barcode=barcode, marketplace_type="yandexmarket")
+                        new_product, _ = Product.objects.get_or_create(vendor_code=vendor_code, barcode=barcode, marketplace_type="yandexmarket")
                         
                         product_sales_to_create.append(
                             ProductSale(
