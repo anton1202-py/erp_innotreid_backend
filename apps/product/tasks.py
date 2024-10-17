@@ -24,7 +24,6 @@ def get_warehouse_data( api_key):
         "Authorization": api_key
     }
     response = requests.get("https://supplies-api.wildberries.ru/api/v1/warehouses", headers=headers)
-    print(response.text)
     return response.json()
 
 def not_official_api_wildberries(nmId, api_key):
