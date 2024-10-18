@@ -884,6 +884,6 @@ class UpdateWildberriesStock(APIView):
     responses={200: {"message": "Calculation started", "task_id": 465456}}
         )
     def get(self, request):
-        task = synchronous_algorithm.delay()
-        update_wildberries_stocks.delay()
+        task = update_yandex_stocks.delay()
+        # update_wildberries_stocks.delay()
         return Response({"message": "Calculation started", "task_id": task.id},status.HTTP_200_OK)
