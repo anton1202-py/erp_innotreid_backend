@@ -416,12 +416,12 @@ class WarehouseHistoryView(APIView):
         
         if sort and sort in ["Z-A", "A-Z"]:
             ordering_by_alphabit = "-" if sort =="Z-A" else ""
-            sorting_warehouse = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).order_by(f"{ordering_by_alphabit}product__vendor_code").distinct("product")
+            sorting_warehouse = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).order_by(f"{ordering_by_alphabit}product__vendor_code").distinct("product__vendor_code")
         elif sort and sort in ["-1", "1"]:
             ordering_by_quantity = "-" if sort =="-1" else ""
-            sorting_warehouse = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).order_by(f"{ordering_by_quantity}unsorted").distinct("product")
+            sorting_warehouse = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).order_by(f"{ordering_by_quantity}unsorted").distinct("product__vendor_code")
         else:
-            sorting_warehouse = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).distinct("product")
+            sorting_warehouse = WarehouseHistory.objects.filter(company=company, product__vendor_code__contains=article,date__gte=date_from, date__lte=date_to).distinct("product__vendor_code")
         context = {"date_from": date_from, "date_to": date_to}
         
         

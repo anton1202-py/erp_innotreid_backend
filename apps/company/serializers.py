@@ -509,7 +509,7 @@ class WarehouseHistorySerializer(serializers.ModelSerializer):
         date_range = [date_from + datetime.timedelta(days=x) for x in range((date_to - date_from).days + 1)]
         dc = {date.strftime("%Y-%m-%d"): 0 for date in date_range}
         results = {}
-        shelfs = WarehouseHistory.objects.filter(product=obj.product)
+        shelfs = WarehouseHistory.objects.filter(product__vendor_code=obj.product.vendor_code,company=obj.company)
         for shelf in shelfs:
             if shelf.shelf:
                 name = shelf.shelf.shelf_name
@@ -522,7 +522,7 @@ class WarehouseHistorySerializer(serializers.ModelSerializer):
             else:
                 name = "-"
             for date in date_range:
-                total = WarehouseHistory.objects.filter(product=obj.product, date=date, company=obj.company, shelf=shelf.shelf).aggregate(total=Sum("stock")).get("total",0)
+                total = WarehouseHistory.objects.filter(product__vendor_code=obj.product.vendor_code, date=date, company=obj.company, shelf=shelf.shelf).aggregate(total=Sum("stock")).get("total",0)
                 if total:
                     results[name][date.strftime("%Y-%m-%d")] = total
                 else:
