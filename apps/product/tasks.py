@@ -145,6 +145,7 @@ def update_wildberries_orders():
 def update_wildberries_stocks():
     
     for wildberries in Wildberries.objects.all():
+        
         wb_api_key = wildberries.wb_api_key
         response = requests.get(wildberries_stocks_url, headers={'Authorization': f'Bearer {wb_api_key}'})
         warehouse_data = get_warehouse_data(wb_api_key)
@@ -491,6 +492,7 @@ def update_ozon_orders():
                 date_from = date_from1.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             else:
                 date_from = (date_from1 + timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+            print(date_from)
 
 @app.task
 def update_ozon_stocks():
@@ -1003,14 +1005,15 @@ def synchronous_algorithm():
     
     update_wildberries_sales.delay()
     update_ozon_sales.delay()
-    update_yandex_market_sales()
-    time.sleep(180)
+    update_yandex_market_sales.delay()
+    time.sleep(600)
     update_wildberries_orders.delay()
     update_ozon_orders.delay()
-    update_yandex_market_orders()
-    time.sleep(180)
-    # update_wildberries_stocks().delay()
+    update_yandex_market_orders.delay()
+    time.sleep(200)
+    # update_wildberries_stocks.delay()
     update_ozon_stocks.delay()
+    time.sleep(200)
     update_yandex_stocks.delay()
 
     return True

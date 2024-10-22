@@ -159,7 +159,7 @@ CACHES = {
 CELERY_BEAT_SCHEDULE = {
     'synchronous-algorithm': {
         'task': 'apps.product.tasks.synchronous_algorithm',
-        'schedule': crontab(minute='*/20')},
+        'schedule': crontab(minute='*/40')},
     'update-wildberries-stocks': {
         'task': 'apps.product.tasks.update_wildberries_stocks',
         'schedule': crontab(minute=0,hour=5)}
