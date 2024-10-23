@@ -96,22 +96,22 @@ def update_recomendation_supplier(company):
     products = ProductOrder.objects.filter(company=company).order_by("product_id").distinct("product_id").values_list("product_id",flat=True)
     
     for item in products:
-        warehouses_w = ProductOrder.objects.filter(product=item, marketplace_type="wildberries").order_by("warehouse__oblast_okrug_name").distinct("warehouse__oblast_okrug_name")
+        warehouses_w = ProductOrder.objects.filter(product=item, marketplace_type="wildberries")
         if warehouses_w.exists():
-            warehouses_w = warehouses_w.filter(date__date__gte=date_from,date__date__lte=date_to).order_by("warehouse__oblast_okrug_name").distinct("warehouse__oblast_okrug_name").values_list("warehouse", flat=True)
+            warehouses_w = warehouses_w.filter(date__date__gte=date_from,date__date__lte=date_to).values_list("warehouse", flat=True)
         else:
             warehouses_w = []
 
-        warehouses_o = ProductOrder.objects.filter(product=item, marketplace_type="ozon").order_by("warehouse__oblast_okrug_name").distinct("warehouse__oblast_okrug_name")
+        warehouses_o = ProductOrder.objects.filter(product=item, marketplace_type="ozon")
         if warehouses_o.exists():
             
-            warehouses_o = warehouses_o.filter(date__date__gte=date_from,date__date__lte=date_to).order_by("warehouse__oblast_okrug_name").distinct("warehouse__oblast_okrug_name").values_list("warehouse", flat=True)
+            warehouses_o = warehouses_o.filter(date__date__gte=date_from,date__date__lte=date_to).values_list("warehouse", flat=True)
         else:
             warehouses_o = []
         
-        warehouses_y = ProductOrder.objects.filter(product=item, marketplace_type="yandexmarket").order_by("warehouse__oblast_okrug_name").distinct("warehouse__oblast_okrug_name")
+        warehouses_y = ProductOrder.objects.filter(product=item, marketplace_type="yandexmarket")
         if warehouses_y.exists():
-            warehouses_y = warehouses_y.filter(date__date__gte=date_from,date__date__lte=date_to).order_by("warehouse__oblast_okrug_name").distinct("warehouse__oblast_okrug_name").values_list("warehouse", flat=True)
+            warehouses_y = warehouses_y.filter(date__date__gte=date_from,date__date__lte=date_to).values_list("warehouse", flat=True)
         else:
             warehouses_y = []
 
@@ -122,7 +122,7 @@ def update_recomendation_supplier(company):
             name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
             oblast_okrug_name = w_item.oblast_okrug_name or w_item.region_name
-            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="wildberries").count()
+            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="wildberries",company=company).count()
             shelf = Shelf.objects.filter(product=item)
             stock_w = WarehouseForStock.objects.filter(name=name)
             
@@ -179,7 +179,7 @@ def update_recomendation_supplier(company):
             name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
             oblast_okrug_name = w_item.oblast_okrug_name or w_item.region_name
-            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="ozon").count()
+            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="ozon", company=company).count()
             shelf = Shelf.objects.filter(product=item)
             stock_w = WarehouseForStock.objects.filter(name=name)
             
@@ -238,7 +238,7 @@ def update_recomendation_supplier(company):
             name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
             oblast_okrug_name = w_item.oblast_okrug_name or w_item.region_name
-            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="yandexmarket").count()
+            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="yandexmarket",company=company).count()
             shelf = Shelf.objects.filter(product=item)
             stock_w = WarehouseForStock.objects.filter(name=name)
             
