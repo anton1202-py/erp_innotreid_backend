@@ -28,3 +28,5 @@ class Migration(migrations.Migration):
             name='region_name',
         ),
     ]
+
+    
