@@ -56,8 +56,8 @@ class ProductStockAdmin(admin.ModelAdmin):
     
 @admin.register(Warehouse)
 class WareHouseAdminView(admin.ModelAdmin):
-    search_fields=["id","name","region_name"]
-    list_display = ["id","name", "oblast_okrug_name", "region_name"]    
+    search_fields=["id","name","oblast_okrug_name"]
+    list_display = ["id","name", "oblast_okrug_name"]    
     
 @admin.register(WarehouseForStock)
 class WareHouseForStockAdminView(admin.ModelAdmin):

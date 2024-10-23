@@ -10,9 +10,7 @@ from apps.company.models import Company
 class Warehouse(models.Model):
 
     name = models.CharField(max_length=50)
-    country_name = models.CharField(max_length=200)
     oblast_okrug_name = models.CharField(max_length=200)
-    region_name = models.CharField(max_length=200)
 
     class Meta:
 
@@ -20,7 +18,7 @@ class Warehouse(models.Model):
         verbose_name = "Warehouse"
         verbose_name_plural = "Warehouse"
         ordering = ["name"]
-        unique_together = ("name","country_name", "oblast_okrug_name", "region_name")
+        unique_together = ("name", "oblast_okrug_name")
 
     def __str__(self) -> str:
         return self.name

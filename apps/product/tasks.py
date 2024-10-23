@@ -1,4 +1,3 @@
-from json import dumps
 import calendar
 
 import requests
@@ -8,7 +7,6 @@ from django.db.models import F
 from apps.marketplaceservice.models import Ozon, Wildberries, YandexMarket
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock
 from config.celery import app
-import time
 
 date_from = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
 
@@ -60,9 +58,7 @@ def update_wildberries_sales():
                 
                 warehouse, created = Warehouse.objects.get_or_create(
                     name = item['warehouseName'],
-                    country_name = item['countryName'],
-                    oblast_okrug_name = item['oblastOkrugName'],
-                    region_name = item['regionName']
+                    oblast_okrug_name = item['oblastOkrugName']
                 )
 
                 wildberries = wildberries
@@ -85,9 +81,6 @@ def update_wildberries_sales():
                     )
                 except:
                     continue
-                
-                
-                
         else:
             return response.text
         return "Success"
@@ -115,9 +108,7 @@ def update_wildberries_orders():
                 
                 warehouse, created = Warehouse.objects.get_or_create(
                     name = item['warehouseName'],
-                    country_name = item['countryName'],
-                    oblast_okrug_name = item['oblastOkrugName'],
-                    region_name = item['regionName']
+                    oblast_okrug_name = item['oblastOkrugName']
                 )
 
                 wildberries = wildberries
@@ -190,9 +181,11 @@ def update_wildberries_stocks():
                     warehouse=warehouse_obj,
                     marketplace_type = "wildberries",
                     company=company,
-                    date=date,
-                    quantity=quantity
+                    date=date
                 )
+
+                product_stock.quantity = quantity
+                product_stock.save()
             
             
     return "Succes"
@@ -276,10 +269,9 @@ def update_ozon_sales():
                 if "warehouse_name" in item["analytics_data"].keys():
                     warehouse_name = item["analytics_data"]['warehouse_name']
                 else:
-                    warehouse_name = ""
+                    continue
                 
-                oblast_okrug_name = item["analytics_data"]['region']
-                region_name = item["analytics_data"]['city']
+                oblast_okrug_name = item["financial_data"]['cluster_to']
                 barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
                 if not barcode:
                     continue
@@ -287,9 +279,7 @@ def update_ozon_sales():
                 product = Product.objects.filter(barcode=barcode)
                 warehouse, created_w = Warehouse.objects.get_or_create(
                     name = warehouse_name,
-                    country_name = "Russia",
-                    oblast_okrug_name = oblast_okrug_name,
-                    region_name = region_name
+                    oblast_okrug_name = oblast_okrug_name
                 )
 
                 if product.exists():
@@ -400,10 +390,9 @@ def update_ozon_orders():
                 
                 if "warehouse_name" in item["analytics_data"].keys():
                     warehouse_name = item["analytics_data"]['warehouse_name']
-                
-                warehouse_name = ""
-                oblast_okrug_name = item["analytics_data"]['region']
-                region_name = item["analytics_data"]['city']
+                else:
+                    continue
+                oblast_okrug_name = item["financial_data"]['cluster_to']
 
                 barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
                 if not barcode:
@@ -412,9 +401,7 @@ def update_ozon_orders():
                 product = Product.objects.filter(barcode=barcode)
                 warehouse, created_w = Warehouse.objects.get_or_create(
                     name = warehouse_name,
-                    country_name = "Russia",
-                    oblast_okrug_name = oblast_okrug_name,
-                    region_name = region_name
+                    oblast_okrug_name = oblast_okrug_name
                 )
                 
                 if product.exists():
@@ -492,7 +479,6 @@ def update_ozon_orders():
                 date_from = date_from1.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             else:
                 date_from = (date_from1 + timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-            print(date_from)
 
 @app.task
 def update_ozon_stocks():
@@ -667,20 +653,13 @@ def update_yandex_market_sales():
             if buyer_total == item_total:
                 if "serviceName" in item["delivery"].keys():
                     warehouse_name = item["delivery"]['serviceName']
-            
-                warehouse_name = ""
+                else:
+                    continue
                 oblast_okrug_name = item["delivery"]['region']['parent']['name']
-                region_name = item["delivery"]['region']['name']
-                try:
-                    country_name = item.get('delivery', {}).get('address', {}).get('country', "")
-                except:
-                    country_name = "Russia"
 
                 warehouse, created_w = Warehouse.objects.get_or_create(
                     name = warehouse_name,
-                    country_name = country_name,
-                    oblast_okrug_name = oblast_okrug_name,
-                    region_name = region_name
+                    oblast_okrug_name = oblast_okrug_name
                 )
                 
                 products = item["items"]
@@ -795,20 +774,13 @@ def update_yandex_market_orders():
             if buyer_total == item_total:
                 if "serviceName" in item["delivery"].keys():
                     warehouse_name = item["delivery"]['serviceName']
-            
-                warehouse_name = ""
+                else:
+                    continue
                 oblast_okrug_name = item["delivery"]['region']['parent']['name']
-                region_name = item["delivery"]['region']['name']
-                try:
-                    country_name = item.get('delivery', {}).get('address', {}).get('country', "")
-                except:
-                    country_name = "Russia"
 
                 warehouse, created_w = Warehouse.objects.get_or_create(
                     name = warehouse_name,
-                    country_name = country_name,
-                    oblast_okrug_name = oblast_okrug_name,
-                    region_name = region_name
+                    oblast_okrug_name = oblast_okrug_name
                 )
                 
                 products = item["items"]
@@ -1003,18 +975,18 @@ def update_yandex_stocks():
 @app.task
 def synchronous_algorithm():
     
-    update_wildberries_sales.delay()
-    update_ozon_sales.delay()
-    update_yandex_market_sales.delay()
-    time.sleep(600)
-    update_wildberries_orders.delay()
-    update_ozon_orders.delay()
-    update_yandex_market_orders.delay()
-    time.sleep(200)
-    # update_wildberries_stocks.delay()
-    update_ozon_stocks.delay()
-    time.sleep(200)
-    update_yandex_stocks.delay()
+    update_wildberries_sales()
+    update_ozon_sales()
+    update_yandex_market_sales()
+    
+    update_wildberries_orders()
+    update_ozon_orders()
+    update_yandex_market_orders()
+    
+    # update_wildberries_stocks()
+    update_ozon_stocks()
+    
+    update_yandex_stocks()
 
     return True
 
