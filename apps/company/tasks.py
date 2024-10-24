@@ -121,7 +121,7 @@ def update_recomendation_supplier(company):
             
             name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
-            oblast_okrug_name = w_item.oblast_okrug_name or w_item.region_name
+            oblast_okrug_name = w_item.oblast_okrug_name
             sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="wildberries",company=company).count()
             shelf = Shelf.objects.filter(product=item)
             stock_w = WarehouseForStock.objects.filter(name=name)
@@ -178,7 +178,7 @@ def update_recomendation_supplier(company):
             
             name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
-            oblast_okrug_name = w_item.oblast_okrug_name or w_item.region_name
+            oblast_okrug_name = w_item.oblast_okrug_name
             sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="ozon", company=company).count()
             shelf = Shelf.objects.filter(product=item)
             stock_w = WarehouseForStock.objects.filter(name=name)
@@ -237,7 +237,7 @@ def update_recomendation_supplier(company):
             
             name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
-            oblast_okrug_name = w_item.oblast_okrug_name or w_item.region_name
+            oblast_okrug_name = w_item.oblast_okrug_name
             sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="yandexmarket",company=company).count()
             shelf = Shelf.objects.filter(product=item)
             stock_w = WarehouseForStock.objects.filter(name=name)

@@ -226,7 +226,7 @@ class PriorityShipments(models.Model):
     marketplace_type = models.CharField(max_length=50, choices=MARKETPLACE_CHOICES)
 
     def __str__(self) -> str:
-        return self.warehouse.region_name or self.warehouse.oblast_okrug_name
+        return self.warehouse.oblast_okrug_name
     
     class Meta:
         unique_together = ["company", "warehouse", "marketplace_type"]

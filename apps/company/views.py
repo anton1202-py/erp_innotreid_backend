@@ -629,8 +629,6 @@ class RecomamandationSupplierView(APIView):
         
         if region_name:
             supplier = supplier.filter(warehouse__oblast_okrug_name__contains=region_name)
-            if not supplier.exists():
-                supplier = supplier.filter(warehouse__region_name__contains=region_name)
             region_obj = supplier.values_list("warehouse",flat=True)
             context = {"market": service, "region_obj": region_obj}
         else:
@@ -690,50 +688,45 @@ class PriorityShipmentsView(APIView):
         if sort and sort in ["Z-A", "A-Z"]:
             
             ordering_by_alphabit = "-" if sort =="Z-A" else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{ordering_by_alphabit}warehouse__region_name")
-            
-            if not priority.exists():
-                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{ordering_by_alphabit}warehouse__oblast_okrug_name")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{ordering_by_alphabit}warehouse__oblast_okrug_name")
 
         elif sort and "travel_days" in sort:
             reverse = "-" if "-" in sort  else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
             if not priority.exists():
                 priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
         elif sort and "arrive_days" in sort:
             reverse = "-" if "-" in sort  else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}arrive_days")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}arrive_days")
             if not priority.exists():
                 priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
         elif sort and "sales" in sort:
             reverse = "-" if "-" in sort  else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}sales")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}sales")
             if not priority.exists():
                 priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
         elif sort and "shipments" in sort:
             reverse = "-" if "-" in sort  else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipments")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipments")
             if not priority.exists():
                 priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
         elif sort and "sales_share" in sort:
             reverse = "-" if "-" in sort  else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}sales_share")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}sales_share")
             if not priority.exists():
                 priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
         elif sort and "shipments_share" in sort:
             reverse = "-" if "-" in sort  else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipments_share")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipments_share")
             if not priority.exists():
                 priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
         elif sort and "shipping_priority" in sort:
             reverse = "-" if "-" in sort  else ""
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipping_priority")
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}shipping_priority")
             if not priority.exists():
                 priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service).order_by(f"{reverse}travel_days")
         else:
-            priority = PriorityShipments.objects.filter(company=company, warehouse__region_name__contains=warehouse,marketplace_type__icontains=service)
-            if not priority.exists():
-                priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse)
+            priority = PriorityShipments.objects.filter(company=company, warehouse__oblast_okrug_name__contains=warehouse,marketplace_type__icontains=service)
         
         paginator = Paginator(priority, per_page=page_size)
         page_obj = paginator.get_page(page)

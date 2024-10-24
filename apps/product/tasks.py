@@ -378,7 +378,7 @@ def update_ozon_orders():
 
         while datetime.strptime(date_from,'%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.now():
 
-            fbo_orders = get_paid_orders(FBO_URL,headers,date_from,"awaiting_packaging","")
+            fbo_orders = get_paid_orders(FBO_URL,headers,date_from,"awaiting_packaging", )
             fbs_orders = get_paid_orders(FBS_URL,headers,date_from, "awaiting_deliver","")
             
             results = fbo_orders + fbs_orders 

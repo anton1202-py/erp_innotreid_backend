@@ -122,7 +122,7 @@ class PriorityShipmentsrAdminView(admin.ModelAdmin):
     list_filter = ["marketplace_type"]
 
     def vendor_code(self, recommandations: PriorityShipments):
-        return recommandations.warehouse.region_name or recommandations.warehouse.oblast_okrug_name
+        return  recommandations.warehouse.oblast_okrug_name
 
 @admin.register(Shipment)
 class PriorityShipmentsrAdminView(admin.ModelAdmin):

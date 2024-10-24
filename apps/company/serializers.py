@@ -180,8 +180,8 @@ class CompanySalesSerializer(serializers.ModelSerializer):
                 for sale in day_sales:
                     product_code = sale['product__vendor_code']
                     if product_code not in results:
-                        results[product_code] = {warehouse.region_name if warehouse.region_name else warehouse.oblast_okrug_name: 0 for date in date_range}
-                    results[product_code][warehouse.region_name if warehouse.region_name else warehouse.oblast_okrug_name] = sale['total_sales']
+                        results[product_code] = { warehouse.oblast_okrug_name: 0 for date in date_range}
+                    results[product_code][ warehouse.oblast_okrug_name] = sale['total_sales']
         
         else:
             for date in date_range:
@@ -261,8 +261,8 @@ class CompanyOrdersSerializer(serializers.ModelSerializer):
                 for sale in day_sales:
                     product_code = sale['product__vendor_code']
                     if product_code not in results:
-                        results[product_code] = {warehouse.region_name if warehouse.region_name else warehouse.oblast_okrug_name: 0 for date in date_range}
-                    results[product_code][warehouse.region_name if warehouse.region_name else warehouse.oblast_okrug_name] = sale['total_sales']
+                        results[product_code] = { warehouse.oblast_okrug_name: 0 for date in date_range}
+                    results[product_code][ warehouse.oblast_okrug_name] = sale['total_sales']
         
         else:
             for date in date_range:
@@ -749,7 +749,7 @@ class RecomamandationSupplierSerializer(serializers.ModelSerializer):
         product = obj.product
         market = self.context.get("market")
         warehouse = self.context.get("region_obj",None)
-        result = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market, company=obj.company).select_related('warehouse').distinct("warehouse").values('warehouse__region_name','warehouse__id','days_left','quantity','warehouse__oblast_okrug_name')
+        result = RecomamandationSupplier.objects.filter(product=product, marketplace_type__icontains=market, company=obj.company).select_related('warehouse').distinct("warehouse").values('warehouse__id','days_left','quantity','warehouse__oblast_okrug_name')
         if warehouse:
             result = result.filter(warehouse_id__in=warehouse)
         # dc = [{
@@ -778,7 +778,7 @@ class PriorityShipmentsSerializer(serializers.ModelSerializer):
         fields = ["id", "region_name", "travel_days","arrive_days", "sales", "sales_share","shipments_share","shipping_priority"]
 
     def get_region_name(self, obj):
-        return obj.warehouse.region_name or obj.warehouse.oblast_okrug_name
+        return obj.warehouse.oblast_okrug_name
     
 class ShipmentSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
