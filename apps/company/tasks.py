@@ -6,8 +6,8 @@ from django.db.models import Count, OuterRef, Max, Subquery, Sum
 from django.db import transaction
 from math import ceil, floor
 
-@app.task
-def update_recomendations(company):
+@app.task(bind=True, max_retries=0)
+def update_recomendations(self,company):
     
     settings = CompanySettings.objects.get(company=company)
     last_sale_days = settings.last_sale_days
@@ -83,8 +83,8 @@ def update_recomendations(company):
     build = Recommendations.objects.bulk_create(recommendations)
     return True
 
-@app.task
-def update_recomendation_supplier(company):
+@app.task(bind=True, max_retries=0)
+def update_recomendation_supplier(self,company):
     
     settings = CompanySettings.objects.get(company=company)
     last_sale_days = settings.last_sale_days
@@ -295,8 +295,8 @@ def update_recomendation_supplier(company):
 
     return True
 
-@app.task
-def update_priority(company_id):
+@app.task(bind=True, max_retries=0)
+def update_priority(self,company_id):
     company = Company.objects.get(id=company_id)
     
     warehouse_product_counts = ProductSale.objects.filter(company=company).values('warehouse',"marketplace_type").annotate(product_count=Count('product', distinct=True)).order_by('warehouse')

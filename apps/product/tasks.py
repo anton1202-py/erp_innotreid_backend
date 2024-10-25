@@ -1,4 +1,5 @@
 import calendar
+import time
 
 import requests
 from datetime import datetime, timedelta
@@ -7,6 +8,7 @@ from django.db.models import F
 from apps.marketplaceservice.models import Ozon, Wildberries, YandexMarket
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock
 from config.celery import app
+from apps.company.location.get_warehouse_name_from_yandex import get_location_info
 
 date_from = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
 
@@ -36,8 +38,8 @@ def not_official_api_wildberries(nmId, api_key):
                     result.append(item3)
     return result
 
-@app.task
-def update_wildberries_sales():
+@app.task(bind=True, max_retries=0)
+def update_wildberries_sales(self):
     
     for wildberries in Wildberries.objects.all():
         
@@ -85,8 +87,8 @@ def update_wildberries_sales():
             return response.text
         return "Success"
 
-@app.task
-def update_wildberries_orders():
+@app.task(bind=True, max_retries=0)
+def update_wildberries_orders(self):
     
 
     for wildberries in Wildberries.objects.all():
@@ -132,8 +134,8 @@ def update_wildberries_orders():
             return response.text
         return "Success"
 
-@app.task
-def update_wildberries_stocks():
+@app.task(bind=True, max_retries=0)
+def update_wildberries_stocks(self):
     
     for wildberries in Wildberries.objects.all():
         
@@ -230,8 +232,8 @@ def get_barcode(vendor_code, api_key, client_id):
         return response.json()["result"]["barcode"]
     return 0 
 
-@app.task
-def update_ozon_sales():
+@app.task(bind=True, max_retries=0)
+def update_ozon_sales(self):
     
     FBO_URL = "https://api-seller.ozon.ru/v2/posting/fbo/list"
     FBS_URL = "https://api-seller.ozon.ru/v2/posting/fbs/list"
@@ -355,8 +357,8 @@ def update_ozon_sales():
             else:
                 date_from = (date_from1 + timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             
-@app.task
-def update_ozon_orders():
+@app.task(bind=True, max_retries=0)
+def update_ozon_orders(self):
     
     FBO_URL = "https://api-seller.ozon.ru/v2/posting/fbo/list"
     FBS_URL = "https://api-seller.ozon.ru/v2/posting/fbs/list"
@@ -480,8 +482,8 @@ def update_ozon_orders():
             else:
                 date_from = (date_from1 + timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
-@app.task
-def update_ozon_stocks():
+@app.task(bind=True, max_retries=0)
+def update_ozon_stocks(self):
     
     for ozon in Ozon.objects.all():
         api_key = ozon.api_token
@@ -548,7 +550,6 @@ def update_ozon_stocks():
             
             product_stock.quantity = quantity
             product_stock.save()
-
     return "Succes"
 
 def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
@@ -623,8 +624,8 @@ def find_barcode(vendor_code, company_id, api_key):
     else: 
         return 0
         
-@app.task
-def update_yandex_market_sales():
+@app.task(bind=True, max_retries=0)
+def update_yandex_market_sales(self):
     
     for yandex_market in YandexMarket.objects.all():
         
@@ -651,10 +652,12 @@ def update_yandex_market_sales():
             item_total = item.get("itemsTotal",0)
 
             if buyer_total == item_total:
-                if "serviceName" in item["delivery"].keys():
-                    warehouse_name = item["delivery"]['serviceName']
-                else:
+                latitude = item["delivery"]['address']['gps']['latitude']
+                longitude = item["delivery"]['address']['gps']['longitude']
+                warehouse_name = get_location_info(latitude=latitude,longitude=longitude)
+                if not warehouse_name:
                     continue
+                
                 oblast_okrug_name = item["delivery"]['region']['parent']['name']
 
                 warehouse, created_w = Warehouse.objects.get_or_create(
@@ -747,8 +750,8 @@ def update_yandex_market_sales():
                     date = date + timedelta(seconds=1)
     return "succes"
                     
-@app.task
-def update_yandex_market_orders():
+@app.task(bind=True, max_retries=0)
+def update_yandex_market_orders(self):
     
     for yandex_market in YandexMarket.objects.all():
         api_key_bearer = yandex_market.api_key_bearer
@@ -772,10 +775,13 @@ def update_yandex_market_orders():
             item_total = item.get("itemsTotal",0)
 
             if buyer_total == item_total:
-                if "serviceName" in item["delivery"].keys():
-                    warehouse_name = item["delivery"]['serviceName']
-                else:
+                
+                latitude = item["delivery"]['address']['gps']['latitude']
+                longitude = item["delivery"]['address']['gps']['longitude']
+                warehouse_name = get_location_info(latitude=latitude,longitude=longitude)
+                if not warehouse_name:
                     continue
+
                 oblast_okrug_name = item["delivery"]['region']['parent']['name']
 
                 warehouse, created_w = Warehouse.objects.get_or_create(
@@ -880,10 +886,11 @@ def get_warehouse_name(business_id,headers, warehouse_id):
     
     for item in results:
         if item["id"] == warehouse_id:
-            return item['name']
+            return item['address']['gps']
+        
 
-@app.task
-def update_yandex_stocks():
+@app.task(bind=True, max_retries=0)
+def update_yandex_stocks(self):
     
     for yandex in YandexMarket.objects.all():
         api_key = yandex.api_key_bearer
@@ -921,6 +928,12 @@ def update_yandex_stocks():
        
         for item in results:
             warehouse = get_warehouse_name(business_id,headers,item['warehouseId'])
+            if not warehouse:
+                continue
+            latitude = warehouse['latitude']
+            longitude = warehouse['longitude']
+            warehouse = get_location_info(latitude=latitude, longitude=longitude)
+
             for offers in item['offers']:
                 if "upatedAt" in offers.keys():
                     date = datetime.strptime(offers['updatedAt'],"%Y-%m-%dT%H:%M:%S.%f%z")
@@ -972,21 +985,20 @@ def update_yandex_stocks():
 
     return "Succes"
 
-@app.task
-def synchronous_algorithm():
+@app.task(bind=True, max_retries=0)
+def synchronous_algorithm(self):
     
-    update_wildberries_sales()
-    update_ozon_sales()
-    update_yandex_market_sales()
-    
-    update_wildberries_orders()
-    update_ozon_orders()
-    update_yandex_market_orders()
-    
-    # update_wildberries_stocks()
-    update_ozon_stocks()
-    
-    update_yandex_stocks()
+    update_wildberries_sales.delay()
+    update_ozon_sales.delay()
+    update_yandex_market_sales.delay()
+    time.sleep(200)
+    update_wildberries_orders.delay()
+    update_ozon_orders.delay()
+    update_yandex_market_orders.delay()
+    time.sleep(200)
+    # update_wildberries_stocks.delay()
+    update_ozon_stocks.delay()
+    update_yandex_stocks.delay()
 
     return True
 
