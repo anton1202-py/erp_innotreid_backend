@@ -1,6 +1,8 @@
 from geopy.geocoders import Nominatim
+import time
 
 def get_location_info(latitude, longitude):
+    time.sleep(2)
     # Geolokatsiya obyektini yaratish
     geolocator = Nominatim(user_agent="geoapiExercises")
 
