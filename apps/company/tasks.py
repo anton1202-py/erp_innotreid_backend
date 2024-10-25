@@ -318,8 +318,14 @@ def update_priority(self,company_id):
             shipments = 0
         
         share_sale = (product/total_sale)*100
-        share_shipments = (shipments/total_shipments)*100
-        shipping_priority = share_shipments/share_sale
+        try:
+            share_shipments = (shipments/total_shipments)*100
+        except:
+            share_shipments = 0
+        try:
+            shipping_priority = share_shipments/share_sale
+        except:
+            shipping_priority = 0
 
         priority, created = PriorityShipments.objects.get_or_create(company=company,warehouse=warehouse, marketplace_type=marketplace_type)
         if created:
