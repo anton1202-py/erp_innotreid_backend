@@ -502,7 +502,9 @@ def update_ozon_stocks(self):
             
             vendor_code = item['item_code']
             warehouse = item['warehouse_name']
-            quantity = item['reserved_amount']
+            quantity = item['free_to_sell_amount']
+            if not warehouse:
+                continue
             
             date = datetime.now()
             
@@ -978,14 +980,14 @@ def update_yandex_stocks(self):
 @app.task(bind=True, max_retries=0)
 def synchronous_algorithm(self):
     
-    update_wildberries_sales.delay()
-    update_ozon_sales.delay()
+    # update_wildberries_sales.delay()
+    # update_ozon_sales.delay()
     update_yandex_market_sales.delay()
-    time.sleep(200)
-    update_wildberries_orders.delay()
-    update_ozon_orders.delay()
+    # time.sleep(200)
+    # update_wildberries_orders.delay()
+    # update_ozon_orders.delay()
     update_yandex_market_orders.delay()
-    time.sleep(200)
+    # time.sleep(200)
     # update_wildberries_stocks.delay()
     update_ozon_stocks.delay()
     update_yandex_stocks.delay()
