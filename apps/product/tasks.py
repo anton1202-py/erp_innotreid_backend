@@ -501,10 +501,8 @@ def update_ozon_stocks(self):
         for item in results:
             
             vendor_code = item['item_code']
-            warehouse = item['warehouse_name']
+            warehouse_name = item['warehouse_name']
             quantity = item['free_to_sell_amount']
-            if not warehouse:
-                continue
             
             date = datetime.now()
             
@@ -512,9 +510,9 @@ def update_ozon_stocks(self):
             if not barcode:
                 continue
             product = Product.objects.filter(barcode=barcode)
-            warehouse = WarehouseForStock.objects.filter(name=warehouse, marketplace_type="ozon").first()
+            warehouse = WarehouseForStock.objects.filter(name=warehouse_name, marketplace_type="ozon").first()
             if not warehouse:
-                warehouse = WarehouseForStock.objects.create(name=warehouse, marketplace_type="ozon")
+                warehouse = WarehouseForStock.objects.create(name=warehouse_name, marketplace_type="ozon")
             
             if not product.exists():
                 product, created_s = Product.objects.get_or_create(vendor_code=vendor_code, barcode=barcode, marketplace_type='ozon')
