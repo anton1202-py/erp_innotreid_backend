@@ -176,7 +176,7 @@ def update_wildberries_stocks(self):
                     quantity=quantity
                 ))
     
-    ProductStock.objects.bulk_create(product_stocks_to_create, batch_size=100)
+    ProductStock.objects.bulk_create(product_stocks_to_create, batch_size=100, ignore_conflicts=True)
 
     return "Success"
 
