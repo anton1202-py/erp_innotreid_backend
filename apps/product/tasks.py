@@ -136,61 +136,50 @@ def update_wildberries_orders(self):
 
 @app.task(bind=True, max_retries=0)
 def update_wildberries_stocks(self):
+    # Saqlash uchun kerakli ma'lumotlarni vaqtinchalik saqlash
+    product_stocks_to_create = []
     
     for wildberries in Wildberries.objects.all():
-        
         wb_api_key = wildberries.wb_api_key
         response = requests.get(wildberries_stocks_url, headers={'Authorization': f'Bearer {wb_api_key}'})
+        
         warehouse_data = get_warehouse_data(wb_api_key)
         
         for item in response.json():
-            
-            
             company = wildberries.company
             date = datetime.now()
-            try:
-                barcode = item['barcode']
-            except:
+
+            barcode = item.get('barcode')
+            if not barcode:
                 continue
             
-            product = Product.objects.filter(vendor_code=item['supplierArticle'], barcode=barcode, marketplace_type="wildberries")
-            if product.exists():
-                product = product.first()
-            else:
+            product = Product.objects.filter(vendor_code=item['supplierArticle'], barcode=barcode, marketplace_type="wildberries").first()
+            if not product:
                 product, _ = Product.objects.get_or_create(vendor_code=item['supplierArticle'], barcode=barcode, marketplace_type="wildberries")
-            
-            result_w = not_official_api_wildberries(api_key=wb_api_key,nmId=item['nmId'])
+
+            result_w = not_official_api_wildberries(api_key=wb_api_key, nmId=item['nmId'])
             for item_not_official in result_w:
-                
                 quantity = item_not_official['qty']
-                
-                for warehouse_item in warehouse_data:
-                    
-                    if item_not_official['wh'] == warehouse_item['ID']:
-                        warehouse = warehouse_item['name']
-                        skip_outer_loop = False
-                        break
-                    else:
-                        skip_outer_loop = True
-                        
-                if skip_outer_loop:
+
+                warehouse_name = next((wh['name'] for wh in warehouse_data if item_not_official['wh'] == wh['ID']), None)
+                if not warehouse_name:
                     continue
+
+                warehouse_obj, created_w = WarehouseForStock.objects.get_or_create(name=warehouse_name, marketplace_type="wildberries")
                 
-                warehouse_obj, created_w = WarehouseForStock.objects.get_or_create(name=warehouse, marketplace_type="wildberries")
-                
-                product_stock, created_s = ProductStock.objects.get_or_create(
+                product_stocks_to_create.append(ProductStock(
                     product=product,
                     warehouse=warehouse_obj,
-                    marketplace_type = "wildberries",
+                    marketplace_type="wildberries",
                     company=company,
-                    date=date
-                )
+                    date=date,
+                    quantity=quantity
+                ))
+    
+    ProductStock.objects.bulk_create(product_stocks_to_create, batch_size=100)
 
-                product_stock.quantity = quantity
-                product_stock.save()
-            
-            
-    return "Succes"
+    return "Success"
+
             
 def get_paid_orders(url, headers, date_from, status="delivered",status_2="paid"):
     date = datetime.strptime(date_from,"%Y-%m-%dT%H:%M:%S.%fZ")
@@ -521,7 +510,9 @@ def update_ozon_stocks(self):
             if not barcode:
                 continue
             product = Product.objects.filter(barcode=barcode)
-            warehouse, created_w = WarehouseForStock.objects.get_or_create(name=warehouse, marketplace_type="ozon")
+            warehouse = WarehouseForStock.objects.filter(name=warehouse, marketplace_type="ozon").first()
+            if not warehouse:
+                warehouse = WarehouseForStock.objects.create(name=warehouse, marketplace_type="ozon")
             
             if not product.exists():
                 product, created_s = Product.objects.get_or_create(vendor_code=vendor_code, barcode=barcode, marketplace_type='ozon')
@@ -888,7 +879,6 @@ def get_warehouse_name(business_id,headers, warehouse_id):
         if item["id"] == warehouse_id:
             return item['address']['gps']
         
-
 @app.task(bind=True, max_retries=0)
 def update_yandex_stocks(self):
     

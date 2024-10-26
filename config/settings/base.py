@@ -140,7 +140,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Use Redis as the broker
-CELERY_RESULT_BACKEND = 'django-db'  # Store results in Django database
+CELERY_RESULT_BACKEND = None  # Store results in Django database
 CELERY_CACHE_BACKEND = 'django-cache'  # Use Django cache
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
