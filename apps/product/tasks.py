@@ -483,6 +483,7 @@ def update_ozon_stocks(self):
             'Api-Key': api_key,
             'Content-Type': 'application/json'
         }
+        company = ozon.company
         url = "https://api-seller.ozon.ru/v2/analytics/stock_on_warehouses"
         data = {
         "limit": 1000,
@@ -491,13 +492,12 @@ def update_ozon_stocks(self):
         }
         response = requests.post(url, headers=headers, json=data)
         
-        company = ozon.company
-    
-        if response.status_code == 200:
-            results = response.json().get('result').get("rows",[])
-        else:
-            results = []
-
+        results = []
+        while response.status_code == 200 and response.json()['result']["rows"]:
+            results += response.json()['result']["rows"]
+            data['offset'] += 1000
+            response = requests.post(url, headers=headers, json=data)
+            
         for item in results:
             
             vendor_code = item['item_code']
