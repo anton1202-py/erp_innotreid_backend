@@ -162,7 +162,7 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(minute='*/40')},
     'update-wildberries-stocks': {
         'task': 'apps.product.tasks.update_wildberries_stocks',
-        'schedule': crontab(minute=0,hour=5)}
+        'schedule': crontab(minute=0,hour=2)}
     
 }
 
