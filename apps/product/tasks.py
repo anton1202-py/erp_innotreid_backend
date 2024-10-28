@@ -9,6 +9,7 @@ from apps.marketplaceservice.models import Ozon, Wildberries, YandexMarket
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock
 from config.celery import app
 from apps.company.location.get_warehouse_name_from_yandex import get_location_info
+from celery_once import QueueOnce
 
 date_from = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
 
@@ -38,8 +39,8 @@ def not_official_api_wildberries(nmId, api_key):
                     result.append(item3)
     return result
 
-@app.task(bind=True, max_retries=0)
-def update_wildberries_sales(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_wildberries_sales():
     
     for wildberries in Wildberries.objects.all():
         
@@ -87,8 +88,8 @@ def update_wildberries_sales(self):
             return response.text
         return "Success"
 
-@app.task(bind=True, max_retries=0)
-def update_wildberries_orders(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_wildberries_orders():
     
 
     for wildberries in Wildberries.objects.all():
@@ -134,8 +135,8 @@ def update_wildberries_orders(self):
             return response.text
         return "Success"
 
-@app.task(bind=True, max_retries=0)
-def update_wildberries_stocks(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_wildberries_stocks():
     # Saqlash uchun kerakli ma'lumotlarni vaqtinchalik saqlash
     product_stocks_to_create = []
     
@@ -221,8 +222,8 @@ def get_barcode(vendor_code, api_key, client_id):
         return response.json()["result"]["barcode"]
     return 0 
 
-@app.task(bind=True, max_retries=0)
-def update_ozon_sales(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_ozon_sales():
     
     FBO_URL = "https://api-seller.ozon.ru/v2/posting/fbo/list"
     FBS_URL = "https://api-seller.ozon.ru/v2/posting/fbs/list"
@@ -346,8 +347,8 @@ def update_ozon_sales(self):
             else:
                 date_from = (date_from1 + timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             
-@app.task(bind=True, max_retries=0)
-def update_ozon_orders(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_ozon_orders():
     
     FBO_URL = "https://api-seller.ozon.ru/v2/posting/fbo/list"
     FBS_URL = "https://api-seller.ozon.ru/v2/posting/fbs/list"
@@ -471,8 +472,8 @@ def update_ozon_orders(self):
             else:
                 date_from = (date_from1 + timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
 
-@app.task(bind=True, max_retries=0)
-def update_ozon_stocks(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_ozon_stocks():
     
     for ozon in Ozon.objects.all():
         api_key = ozon.api_token
@@ -615,8 +616,8 @@ def find_barcode(vendor_code, company_id, api_key):
     else: 
         return 0
         
-@app.task(bind=True, max_retries=0)
-def update_yandex_market_sales(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_yandex_market_sales():
     
     for yandex_market in YandexMarket.objects.all():
         
@@ -741,8 +742,8 @@ def update_yandex_market_sales(self):
                     date = date + timedelta(seconds=1)
     return "succes"
                     
-@app.task(bind=True, max_retries=0)
-def update_yandex_market_orders(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_yandex_market_orders():
     
     for yandex_market in YandexMarket.objects.all():
         api_key_bearer = yandex_market.api_key_bearer
@@ -879,13 +880,13 @@ def get_warehouse_name(business_id,headers, warehouse_id):
         if item["id"] == warehouse_id:
             return item['address']['gps']
         
-@app.task(bind=True, max_retries=0)
-def update_yandex_stocks(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def update_yandex_stocks():
     
     for yandex in YandexMarket.objects.all():
         api_key = yandex.api_key_bearer
         # fbs = yandex.fbs_campaign_id
-        fby = yandex.fby_campaign_id
+        fby = yandex.fbs_campaign_id
         business_id = yandex.business_id
         
         url = "https://api.partner.market.yandex.ru/campaigns/{campaignId}/offers/stocks"
@@ -975,21 +976,21 @@ def update_yandex_stocks(self):
 
     return "Succes"
 
-@app.task(bind=True, max_retries=0)
-def synchronous_algorithm(self):
+@app.task(base=QueueOnce, once={'graceful': True})
+def synchronous_algorithm():
     
     update_wildberries_sales.delay()
     update_ozon_sales.delay()
     update_yandex_market_sales.delay()
-    time.sleep(20)
+    
     update_wildberries_orders.delay()
     update_ozon_orders.delay()
     update_yandex_market_orders.delay()
-    time.sleep(20)
+    
     update_wildberries_stocks.delay()
-    time.sleep(200)
+    
     update_ozon_stocks.delay()
-    time.sleep(200)
+    
     update_yandex_stocks.delay()
 
     return True

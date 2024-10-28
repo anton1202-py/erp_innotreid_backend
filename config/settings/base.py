@@ -140,11 +140,11 @@ SPECTACULAR_SETTINGS = {
 }
 
 CELERY_BROKER_URL = 'redis://localhost:6379/0'  # Use Redis as the broker
-CELERY_RESULT_BACKEND = None  # Store results in Django database
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'  # Store results in Django database
 CELERY_CACHE_BACKEND = 'django-cache'  # Use Django cache
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = 'Europe/Moscow'
 
 CACHES = {
     'default': {
@@ -160,7 +160,21 @@ CELERY_BEAT_SCHEDULE = {
     'synchronous-algorithm': {
         'task': 'apps.product.tasks.synchronous_algorithm',
         'schedule': crontab(minute='*/40')},
+        'options': {
+            'once': {
+                'graceful': True, 
+            }
+        }
     
+}
+
+CELERY_ONCE = {
+    'backend': 'celery_once.backends.Redis',  
+    'settings': {
+        'url': 'redis://localhost:6379/1',  
+        'default_timeout': 60 * 60 , 
+        'blocking': True
+    }
 }
 
 CORS_ALLOW_ALL_ORIGINS = True

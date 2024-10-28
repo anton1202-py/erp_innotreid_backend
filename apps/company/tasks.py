@@ -2,11 +2,11 @@ from config.celery import app
 from apps.product.models import *
 from apps.company.models import CompanySettings
 from datetime import datetime, timedelta
-from django.db.models import Count, OuterRef, Max, Subquery, Sum
-from django.db import transaction
+from django.db.models import Count, Sum
+from celery_once import QueueOnce
 from math import ceil, floor
 
-@app.task(bind=True, max_retries=0)
+@app.task(bind=True, acks_late=True, retry=False,base=QueueOnce, once={'graceful': True})
 def update_recomendations(self,company):
     
     settings = CompanySettings.objects.get(company=company)
@@ -83,7 +83,7 @@ def update_recomendations(self,company):
     build = Recommendations.objects.bulk_create(recommendations)
     return True
 
-@app.task(bind=True, max_retries=0)
+@app.task(bind=True, acks_late=True, retry=False, base=QueueOnce, once={'graceful': True})
 def update_recomendation_supplier(self,company):
     
     settings = CompanySettings.objects.get(company=company)
@@ -295,7 +295,7 @@ def update_recomendation_supplier(self,company):
 
     return True
 
-@app.task(bind=True, max_retries=0)
+@app.task(bind=True, acks_late=True, retry=False, base=QueueOnce, once={'graceful': True})
 def update_priority(self,company_id):
     company = Company.objects.get(id=company_id)
     
