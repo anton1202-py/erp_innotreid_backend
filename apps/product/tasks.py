@@ -981,17 +981,17 @@ def update_yandex_stocks():
 @app.task(base=QueueOnce, once={'graceful': True})
 def synchronous_algorithm():
     
-    # update_wildberries_sales.delay()
-    # update_ozon_sales.delay()
+    update_wildberries_sales.delay()
+    update_ozon_sales.delay()
     update_yandex_market_sales.delay()
     
-    # update_wildberries_orders.delay()
-    # update_ozon_orders.delay()
+    update_wildberries_orders.delay()
+    update_ozon_orders.delay()
     update_yandex_market_orders.delay()
     
-    # update_wildberries_stocks.delay()
+    update_wildberries_stocks.delay()
     
-    # update_ozon_stocks.delay()
+    update_ozon_stocks.delay()
     
     update_yandex_stocks.delay()
 
