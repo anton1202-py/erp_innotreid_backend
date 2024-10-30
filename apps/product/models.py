@@ -259,4 +259,25 @@ class Inventory(models.Model):
     total = models.IntegerField(default=0)
     total_fact = models.IntegerField(default=0)
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
+
+class Claster(models.Model):
+
+    claster_to = models.CharField(max_length=150)
+    region_name = models.CharField(max_length=150)
+    company = models.ForeignKey(to=Company, on_delete=models.CASCADE)
+
+    def __str__(self) -> str:
+        return self.claster_to
+
+class WarehouseYandex(models.Model):
+
+    warehouse_id = models.IntegerField()
+    claster_to = models.CharField(max_length=150)
+    company = models.ForeignKey(to=Company, on_delete=models.CASCADE)
+
+    def __str__(self) -> str:
+        return self.claster_to
+    
+
+
     

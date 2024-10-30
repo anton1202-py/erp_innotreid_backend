@@ -3,7 +3,7 @@ from django.contrib import admin
 
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock, \
       Recommendations, InProduction, Shelf, SortingWarehouse, WarehouseHistory, RecomamandationSupplier, PriorityShipments, \
-      ShipmentHistory, Shipment, Inventory
+      ShipmentHistory, Shipment, Inventory, Claster, WarehouseYandex
 from django.db.models import Count
 from django_celery_results.models import TaskResult
 
@@ -12,6 +12,14 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ['vendor_code',"id", "marketplace_type"]
     search_fields = ['vendor_code', "id"]
     list_filter = ["marketplace_type"]
+
+@admin.register(Claster)
+class ClasterSaleAdmin(admin.ModelAdmin):
+    list_display = ('id', 'claster_to','region_name')
+
+@admin.register(WarehouseYandex)
+class WarehouseYandexSaleAdmin(admin.ModelAdmin):
+    list_display = ('id', 'claster_to','warehouse_id')
 
 @admin.register(ProductSale)
 class ProductSaleAdmin(admin.ModelAdmin):

@@ -119,30 +119,25 @@ def update_recomendation_supplier(self,company):
         
         for w_item in warehouses_w:
             
-            name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
             oblast_okrug_name = w_item.oblast_okrug_name
-            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="wildberries",company=company).count()
-            shelf = Shelf.objects.filter(product=item)
-            stock_w = WarehouseForStock.objects.filter(name=name)
-            
-            if stock_w.exists():
-                stock_w = stock_w.first()
-                stock = ProductStock.objects.filter(product=item,warehouse=stock_w,marketplace_type="wildberries",company=company)
-                if stock.exists():
-                    date = stock.latest("date").date
-                    stock = stock.filter(date=date).aggregate(total=Sum("quantity"))['total']
-                else:
-                    stock = 0
-            else:
-                stock = 0
+            sale = ProductOrder.objects.filter(product__vendor_code=item.vendor_code, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="wildberries",company=company).count()
+            shelf = Shelf.objects.filter(product__vendor_code=item.vendor_code)
+            names = Warehouse.objects.filter(oblast_okrug_name=oblast_okrug_name).values("name")
+            stock_w = WarehouseForStock.objects.filter(name__in=names)
+            stock = 0
+            for item_w in stock_w:
+                P_S = ProductStock.objects.filter(warehouse=item_w, marketplace_type="wildberries")
+                if P_S.exists():
+                    P_S = P_S.latest("date")
+                    stock += P_S.quantity
 
             if shelf.exists():
                 shelf = shelf.aggregate(total=Sum("stock"))["total"]
             else:
                 shelf = 0
             
-            sorting = SortingWarehouse.objects.filter(product=item,company=company)
+            sorting = SortingWarehouse.objects.filter(product__vendor_code=item,company=company)
             if sorting.exists():
                 sorting = sorting.aggregate(total=Sum("unsorted"))["total"]
             else:
@@ -176,30 +171,25 @@ def update_recomendation_supplier(self,company):
 
         for w_item in warehouses_o:
             
-            name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
             oblast_okrug_name = w_item.oblast_okrug_name
-            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="ozon", company=company).count()
-            shelf = Shelf.objects.filter(product=item)
-            stock_w = WarehouseForStock.objects.filter(name=name)
-            
-            if stock_w.exists():
-                stock_w = stock_w.first()
-                stock = ProductStock.objects.filter(product=item,warehouse=stock_w,marketplace_type="ozon", company=company)
-                if stock.exists():
-                    date = stock.latest("date").date
-                    stock = stock.filter(date=date).aggregate(total=Sum("quantity"))['total']
-                else:
-                    stock = 0
-            else:
-                stock = 0
+            sale = ProductOrder.objects.filter(product__vendor_code=item.vendor_code, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="wildberries",company=company).count()
+            shelf = Shelf.objects.filter(product__vendor_code=item.vendor_code)
+            names = Warehouse.objects.filter(oblast_okrug_name=oblast_okrug_name).values("name")
+            stock_w = WarehouseForStock.objects.filter(name__in=names)
+            stock = 0
+            for item_w in stock_w:
+                P_S = ProductStock.objects.filter(warehouse=item_w, marketplace_type="ozon")
+                if P_S.exists():
+                    P_S = P_S.latest("date")
+                    stock += P_S.quantity
 
             if shelf.exists():
                 shelf = shelf.aggregate(total=Sum("stock"))["total"]
             else:
                 shelf = 0
             
-            sorting = SortingWarehouse.objects.filter(product=item,company=company)
+            sorting = SortingWarehouse.objects.filter(product__vendor_code=item,company=company)
             if sorting.exists():
                 sorting = sorting.aggregate(total=Sum("unsorted"))["total"]
             else:
@@ -235,30 +225,25 @@ def update_recomendation_supplier(self,company):
 
         for w_item in warehouses_y:
             
-            name = Warehouse.objects.get(id=w_item).name
             w_item = Warehouse.objects.get(id=w_item)
             oblast_okrug_name = w_item.oblast_okrug_name
-            sale = ProductOrder.objects.filter(product=item, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="yandexmarket",company=company).count()
-            shelf = Shelf.objects.filter(product=item)
-            stock_w = WarehouseForStock.objects.filter(name=name)
-            
-            if stock_w.exists():
-                stock_w = stock_w.first()
-                stock = ProductStock.objects.filter(product=item,warehouse=stock_w,marketplace_type="yandexmarket",company=company)
-                if stock.exists():
-                    date = stock.latest("date").date
-                    stock = stock.filter(date=date).aggregate(total=Sum("quantity"))['total']
-                else:
-                    stock = 0
-            else:
-                stock = 0
+            sale = ProductOrder.objects.filter(product__vendor_code=item.vendor_code, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="wildberries",company=company).count()
+            shelf = Shelf.objects.filter(product__vendor_code=item.vendor_code)
+            names = Warehouse.objects.filter(oblast_okrug_name=oblast_okrug_name).values("name")
+            stock_w = WarehouseForStock.objects.filter(name__in=names)
+            stock = 0
+            for item_w in stock_w:
+                P_S = ProductStock.objects.filter(warehouse=item_w, marketplace_type="yandexmarket")
+                if P_S.exists():
+                    P_S = P_S.latest("date")
+                    stock += P_S.quantity
 
             if shelf.exists():
                 shelf = shelf.aggregate(total=Sum("stock"))["total"]
             else:
                 shelf = 0
             
-            sorting = SortingWarehouse.objects.filter(product=item,company=company)
+            sorting = SortingWarehouse.objects.filter(product__vendor_code=item,company=company)
             if sorting.exists():
                 sorting = sorting.aggregate(total=Sum("unsorted"))["total"]
             else:

@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 from celery import shared_task
 from django.db.models import F
 from apps.marketplaceservice.models import Ozon, Wildberries, YandexMarket
-from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock
+from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock, Claster, \
+      WarehouseYandex
 from config.celery import app
 from apps.company.location.get_warehouse_name_from_yandex import get_location_info
 from celery_once import QueueOnce
@@ -644,16 +645,15 @@ def update_yandex_market_sales():
             item_total = item.get("itemsTotal",0)
 
             if buyer_total == item_total:
-                latitude = item["delivery"]['address']['gps']['latitude']
-                longitude = item["delivery"]['address']['gps']['longitude']
-                warehouse_name = get_location_info(latitude=latitude,longitude=longitude)
-                if not warehouse_name:
-                    continue
                 
                 oblast_okrug_name = item["delivery"]['region']['parent']['name']
-
+                claster_to = Claster.objects.filter(region_name=oblast_okrug_name).first()
+                if not claster_to:
+                    oblast_okrug_name = item["delivery"]['region']['parent']['name']
+                else:
+                    oblast_okrug_name = claster_to.claster_to
                 warehouse, created_w = Warehouse.objects.get_or_create(
-                    name = warehouse_name,
+                    name = oblast_okrug_name,
                     oblast_okrug_name = oblast_okrug_name
                 )
                 
@@ -767,17 +767,15 @@ def update_yandex_market_orders():
             item_total = item.get("itemsTotal",0)
 
             if buyer_total == item_total:
-                
-                latitude = item["delivery"]['address']['gps']['latitude']
-                longitude = item["delivery"]['address']['gps']['longitude']
-                warehouse_name = get_location_info(latitude=latitude,longitude=longitude)
-                if not warehouse_name:
-                    continue
 
                 oblast_okrug_name = item["delivery"]['region']['parent']['name']
-
+                claster_to = Claster.objects.filter(region_name=oblast_okrug_name).first()
+                if not claster_to:
+                    oblast_okrug_name = item["delivery"]['region']['parent']['name']
+                else:
+                    oblast_okrug_name = claster_to.claster_to
                 warehouse, created_w = Warehouse.objects.get_or_create(
-                    name = warehouse_name,
+                    name = oblast_okrug_name,
                     oblast_okrug_name = oblast_okrug_name
                 )
                 
@@ -886,7 +884,7 @@ def update_yandex_stocks():
     for yandex in YandexMarket.objects.all():
         api_key = yandex.api_key_bearer
         # fbs = yandex.fbs_campaign_id
-        fby = yandex.fbs_campaign_id
+        fby = yandex.fby_campaign_id
         business_id = yandex.business_id
         
         url = "https://api.partner.market.yandex.ru/campaigns/{campaignId}/offers/stocks"
@@ -918,12 +916,16 @@ def update_yandex_stocks():
         company = yandex.company
        
         for item in results:
-            warehouse = get_warehouse_name(business_id,headers,item['warehouseId'])
+            warehouse = WarehouseYandex.objects.filter(warehouse_id=item['warehouseId']).first()
             if not warehouse:
-                continue
-            latitude = warehouse['latitude']
-            longitude = warehouse['longitude']
-            warehouse = get_location_info(latitude=latitude, longitude=longitude)
+                warehouse = get_warehouse_name(business_id,headers,item['warehouseId'])
+                if not warehouse:
+                    continue
+                latitude = warehouse['latitude']
+                longitude = warehouse['longitude']
+                warehouse = get_location_info(latitude=latitude, longitude=longitude)
+            else:
+                warehouse = warehouse.claster_to
 
             for offers in item['offers']:
                 if "upatedAt" in offers.keys():
@@ -979,17 +981,17 @@ def update_yandex_stocks():
 @app.task(base=QueueOnce, once={'graceful': True})
 def synchronous_algorithm():
     
-    update_wildberries_sales.delay()
-    update_ozon_sales.delay()
+    # update_wildberries_sales.delay()
+    # update_ozon_sales.delay()
     update_yandex_market_sales.delay()
     
-    update_wildberries_orders.delay()
-    update_ozon_orders.delay()
+    # update_wildberries_orders.delay()
+    # update_ozon_orders.delay()
     update_yandex_market_orders.delay()
     
-    update_wildberries_stocks.delay()
+    # update_wildberries_stocks.delay()
     
-    update_ozon_stocks.delay()
+    # update_ozon_stocks.delay()
     
     update_yandex_stocks.delay()
 

@@ -10,7 +10,7 @@ proxies_list = [
 ]
 
 def get_location_info(latitude, longitude):
-    time.sleep(30) 
+    time.sleep(5) 
 
     try:
 
