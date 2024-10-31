@@ -127,7 +127,7 @@ def update_recomendation_supplier(self,company):
             stock_w = WarehouseForStock.objects.filter(name__in=names)
             stock = 0
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(warehouse=item_w, marketplace_type="wildberries")
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to), warehouse=item_w, marketplace_type="wildberries")
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity
@@ -178,8 +178,9 @@ def update_recomendation_supplier(self,company):
             names = Warehouse.objects.filter(oblast_okrug_name=oblast_okrug_name).values("name")
             stock_w = WarehouseForStock.objects.filter(name__in=names)
             stock = 0
+            
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(warehouse=item_w, marketplace_type="ozon")
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to), warehouse=item_w, marketplace_type="ozon")
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity
@@ -233,7 +234,7 @@ def update_recomendation_supplier(self,company):
             stock_w = WarehouseForStock.objects.filter(name__in=names)
             stock = 0
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(warehouse=item_w, marketplace_type="yandexmarket")
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to) ,warehouse=item_w, marketplace_type="yandexmarket")
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity
@@ -243,7 +244,7 @@ def update_recomendation_supplier(self,company):
             else:
                 shelf = 0
             
-            sorting = SortingWarehouse.objects.filter(product__vendor_code=item,company=company)
+            sorting = SortingWarehouse.objects.filter(product__vendor_code=item.vendor_code,company=company)
             if sorting.exists():
                 sorting = sorting.aggregate(total=Sum("unsorted"))["total"]
             else:
