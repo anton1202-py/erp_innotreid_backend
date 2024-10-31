@@ -108,7 +108,7 @@ def update_recomendation_supplier(self,company):
         warehouses_o = ProductOrder.objects.filter(product__vendor_code=item.vendor_code, marketplace_type="ozon")
         if warehouses_o.exists():
             warehouses_o = warehouses_o.filter(date__date__gte=date_from,date__date__lte=date_to).values_list("warehouse", flat=True)
-            print(warehouses_o)
+            
         else:
             warehouses_o = []
         
@@ -176,17 +176,18 @@ def update_recomendation_supplier(self,company):
             w_item = Warehouse.objects.get(id=w_item)
             oblast_okrug_name = w_item.oblast_okrug_name
             sale = ProductOrder.objects.filter(product__vendor_code=item.vendor_code, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="ozon",company=company).count()
+            
             shelf = Shelf.objects.filter(product__vendor_code=item.vendor_code)
             names = Warehouse.objects.filter(oblast_okrug_name=oblast_okrug_name).values("name")
             stock_w = WarehouseForStock.objects.filter(name__in=names)
             stock = 0
             
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to), warehouse=item_w, marketplace_type="ozon")
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__gte=date_from,date__lte=date_to, warehouse=item_w, marketplace_type="ozon")
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity
-            print(f"stock: {stock}")
+
             if shelf.exists():
                 shelf = shelf.aggregate(total=Sum("stock"))["total"]
             else:
@@ -200,7 +201,7 @@ def update_recomendation_supplier(self,company):
             
             sale_per_day = sale/last_sale_days
             need_product = floor(sale_per_day*next_sale_days)
-            print(f"need_product: {need_product}")
+
             all_quantity = sorting + stock + shelf
             try:
                 days_left = floor(all_quantity/sale_per_day)
