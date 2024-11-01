@@ -208,7 +208,7 @@ def update_recomendation_supplier(self,company):
             except:
                 days_left = 0
             difference = need_product - all_quantity
-
+            print(f'sale: {sale} avg_sale{sale_per_day} need_product: {need_product} stock: {stock}')
             if difference > 0:
                 if Shipment.objects.filter(product__vendor_code=item.vendor_code) or RecomamandationSupplier.objects.filter(company=company,warehouse=w_item,product=item, marketplace_type="ozon").exists():
                     continue
@@ -297,6 +297,7 @@ def update_priority(self,company_id):
     total_shipments = sum(item['total_quantity'] for item in warehouse_product_totals)
     
     for item in warehouse_product_counts:
+       
         product = item["product_count"]
         warehouse = item['warehouse']
         marketplace_type = item['marketplace_type']

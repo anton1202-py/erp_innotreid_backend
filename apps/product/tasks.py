@@ -380,7 +380,8 @@ def update_ozon_orders():
             results = fbo_orders + fbs_orders 
             for item in results:
                 
-                date = item['in_process_at']
+                date = item['created_at']
+                date = datetime.strptime(date,"%Y-%m-%dT%H:%M:%S.%fZ")
                 sku = item['products'][0]['offer_id']
                 
                 if "warehouse_name" in item["analytics_data"].keys():
@@ -788,11 +789,13 @@ def update_yandex_market_orders():
                 oblast_okrug_name = find_republic_name(item["delivery"]['region'])
                 if not oblast_okrug_name:
                     continue
+                
                 claster_to = Claster.objects.filter(region_name=oblast_okrug_name).first()
                 if not claster_to:
                     oblast_okrug_name = oblast_okrug_name = find_republic_name(item["delivery"]['region'])
                 else:
                     oblast_okrug_name = claster_to.claster_to
+                
                 warehouse, created_w = Warehouse.objects.get_or_create(
                     name = oblast_okrug_name,
                     oblast_okrug_name = oblast_okrug_name
