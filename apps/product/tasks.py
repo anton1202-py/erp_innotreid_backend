@@ -189,7 +189,6 @@ def get_paid_orders(url, headers, date_from, status="delivered",status_2="paid")
         "dir": "asc",
         "filter": {
             "status": status,
-            "financial_status": status_2,
             "since": date_from,
             "to": (date + timedelta(days=3)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         },
@@ -200,14 +199,16 @@ def get_paid_orders(url, headers, date_from, status="delivered",status_2="paid")
             "financial_data": True
         }
     }
-
+    results = []
     response = requests.post(url, headers=headers, json=data)
     
-    if response.status_code == 200:
-        return response.json().get('result', [])
-    else:
-      
-        return []
+    while response.json().get('result', False):
+        results += response.json().get('result', [])
+        data['offset'] += 1000
+        response = requests.post(url, headers=headers, json=data)
+    
+    return results
+
 
 def get_barcode(vendor_code, api_key, client_id):
     body = {"offer_id": vendor_code}
@@ -242,9 +243,10 @@ def update_ozon_sales():
         try:
             date_from = ProductSale.objects.filter(marketplace_type="ozon").latest('date').date.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         except:
-            date_from = False
-        if not date_from:
             date_from = (datetime.now()-timedelta(days=365)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+        # print(date_from)
+            
 
         while datetime.strptime(date_from,'%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.now():
             
@@ -353,6 +355,7 @@ def update_ozon_orders():
     
     FBO_URL = "https://api-seller.ozon.ru/v2/posting/fbo/list"
     FBS_URL = "https://api-seller.ozon.ru/v2/posting/fbs/list"
+    
     try:
         date_from = ProductOrder.objects.filter(marketplace_type="ozon").latest('date').date.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
     except:
@@ -371,11 +374,10 @@ def update_ozon_orders():
 
         while datetime.strptime(date_from,'%Y-%m-%dT%H:%M:%S.%fZ') <= datetime.now():
 
-            fbo_orders = get_paid_orders(FBO_URL,headers,date_from,"awaiting_packaging", )
-            fbs_orders = get_paid_orders(FBS_URL,headers,date_from, "awaiting_deliver","")
+            fbo_orders = get_paid_orders(FBO_URL,headers,date_from,"", "")
+            fbs_orders = get_paid_orders(FBS_URL,headers,date_from, "","")
             
             results = fbo_orders + fbs_orders 
-
             for item in results:
                 
                 date = item['in_process_at']
@@ -546,11 +548,7 @@ def update_ozon_stocks():
     return "Succes"
 
 def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
-    if (datetime.strptime(date_from,"%Y-%m-%d") - datetime.now()).days > 30:
-        date_to = (datetime.strptime(date_from,"%Y-%m-%d") + timedelta(days=30)).strftime("%Y-%m-%d")
-    else:
-        date_to = datetime.now().strftime("%Y-%m-%d")
-    url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=&pageSize="
+
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}'
@@ -560,6 +558,7 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
     if difrence == 365:
         orders = []
         months = []
+        
         year = datetime.now().year
         for month in range(1, 13):  
             first_day = datetime(year, month, 1)
@@ -580,6 +579,8 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
                         orders += response.json()["orders"]
     
     else:
+        date_to = (datetime.strptime(date_from,"%Y-%m-%d") + timedelta(days=30)).strftime('%Y-%m-%d')
+        url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=0&pageSize="
         orders = []
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
@@ -590,11 +591,24 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
                     response = requests.get(url, headers=headers)
                     if response.status_code == 200:
                         orders += response.json()["orders"]
+            # print(len(orders))
             return orders
         else:
             
             return []
+    # print(len(orders))
     return orders
+
+def find_republic_name(region):
+
+    if  "REPUBLIC" in region.get("type", ""):
+        return region.get("name")
+    
+    parent = region.get("parent")
+    if parent:
+        return find_republic_name(parent)
+    
+    return None
 
 def find_barcode(vendor_code, company_id, api_key):
     headers = {
@@ -646,7 +660,10 @@ def update_yandex_market_sales():
 
             if buyer_total == item_total:
                 
-                oblast_okrug_name = item["delivery"]['region']['parent']['name']
+                oblast_okrug_name = find_republic_name(item["delivery"]['region'])
+                if not oblast_okrug_name:
+                    continue
+
                 claster_to = Claster.objects.filter(region_name=oblast_okrug_name).first()
                 if not claster_to:
                     oblast_okrug_name = item["delivery"]['region']['parent']['name']
@@ -757,8 +774,8 @@ def update_yandex_market_orders():
         else:
             date_from =date_from.latest("date").date.strftime("%Y-%m-%d")
 
-        results1 = get_yandex_orders(api_key_bearer, date_from,client_id=fby_campaign_id,status="PROCESSING")
-        results2 = get_yandex_orders(api_key_bearer, date_from,client_id=fbs_campaign_id,status="PROCESSING")
+        results1 = get_yandex_orders(api_key_bearer, date_from,client_id=fby_campaign_id,status="")
+        results2 = get_yandex_orders(api_key_bearer, date_from,client_id=fbs_campaign_id,status="")
 
         results = results1 + results2
 
