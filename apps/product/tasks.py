@@ -209,7 +209,6 @@ def get_paid_orders(url, headers, date_from, status="delivered",status_2="paid")
     
     return results
 
-
 def get_barcode(vendor_code, api_key, client_id):
     body = {"offer_id": vendor_code}
     headers = {
@@ -338,8 +337,7 @@ def update_ozon_sales():
                         )
                     except:
                         continue
-        
-            
+                
 @app.task(base=QueueOnce, once={'graceful': True})
 def update_ozon_orders():
     
@@ -535,7 +533,8 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
                 }
     
     difrence = (datetime.now() - datetime.strptime(date_from,"%Y-%m-%d")).days
-    if difrence == 365:
+    if difrence >= 200:
+        print("working here")
         orders = []
         months = []
         
