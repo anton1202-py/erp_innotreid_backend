@@ -667,7 +667,7 @@ def update_yandex_market_sales():
 
                 claster_to = Claster.objects.filter(region_name=oblast_okrug_name).first()
                 if not claster_to:
-                    oblast_okrug_name = item["delivery"]['region']['parent']['name']
+                    oblast_okrug_name = find_republic_name(item["delivery"]['region'])
                 else:
                     oblast_okrug_name = claster_to.claster_to
                 warehouse, created_w = Warehouse.objects.get_or_create(
