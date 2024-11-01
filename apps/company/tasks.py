@@ -93,7 +93,7 @@ def update_recomendation_supplier(self,company):
     date_from = date_to - timedelta(days=last_sale_days)
     company = Company.objects.get(id=company)
 
-    products = ProductOrder.objects.filter(company=company).order_by("product_id").distinct("product_id").values_list("product_id",flat=True)
+    products = ProductOrder.objects.filter(company=company).order_by("product__vendor_code").distinct("product__vendor_code").values_list("product_id",flat=True)
     
     for item in products:
         
@@ -237,6 +237,7 @@ def update_recomendation_supplier(self,company):
             names = Warehouse.objects.filter(oblast_okrug_name=oblast_okrug_name).values("name")
             stock_w = WarehouseForStock.objects.filter(name__in=names)
             stock = 0
+            
             for item_w in stock_w:
                 P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to) ,warehouse=item_w, marketplace_type="yandexmarket")
                 if P_S.exists():
