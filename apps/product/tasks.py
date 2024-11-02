@@ -534,7 +534,6 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
     
     difrence = (datetime.now() - datetime.strptime(date_from,"%Y-%m-%d")).days
     if difrence >= 200:
-        print("working here")
         orders = []
         months = []
         
@@ -553,22 +552,18 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
             first_day = datetime(year, month, 1)
             last_day = datetime(year, month, calendar.monthrange(year, month)[1])
             months.append((first_day.strftime('%Y-%m-%d'), last_day.strftime('%Y-%m-%d')))
-
-        # print(months)  
         
         for date_from, date_to in months:
             
             url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=&pageSize="
-            # print(url)
             response = requests.get(url, headers=headers)
             
             orders += response.json()["orders"]
-            if "pager" in response.json().keys():
-                for i in range(2,response.json()["pager"]["pagesCount"]+1):
-                    url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page={i}&pageSize=1000"
-                    response = requests.get(url, headers=headers)
-                    if response.status_code == 200:
-                        orders += response.json()["orders"]
+            while "paging" in response.json().keys() and  "nextPageToken" in response.json().keys()["paging"]:
+                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=&pageSize="
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    orders += response.json()["orders"]
     
     else:
         
@@ -578,19 +573,15 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
         
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
-            orders += response.json()['orders']
-            if "pagesCount" in response.json().keys():
-                for i in range(2,response.json()["pagesCount"]+1):
-                    url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page={i}&pageSize="
-                    response = requests.get(url, headers=headers)
-                    if response.status_code == 200:
-                        orders += response.json()["orders"]
-            # print(len(orders))
-            return orders
-        else:
             
-            return []
-    # print(len(orders))
+            orders += response.json()['orders']
+            while "paging" in response.json().keys() and  "nextPageToken" in response.json().keys()["paging"]:
+                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=&pageSize="
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    orders += response.json()["orders"]
+            # print(len(orders))
+
     return orders
 
 def find_republic_name(region):
