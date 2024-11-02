@@ -525,7 +525,7 @@ def update_ozon_stocks():
             product_stock.save()
     return "Succes"
 
-def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
+def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED", limit=50):
 
     headers = {
         'Content-Type': 'application/json',
@@ -555,12 +555,12 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
         
         for date_from, date_to in months:
             
-            url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=&pageSize="
+            url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}"
             response = requests.get(url, headers=headers)
             
             orders += response.json()["orders"]
-            while "paging" in response.json().keys() and  "nextPageToken" in response.json().keys()["paging"]:
-                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=&pageSize="
+            while len(response.json()['orders']) >= limit:
+                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}"
                 response = requests.get(url, headers=headers)
                 if response.status_code == 200:
                     orders += response.json()["orders"]
@@ -568,15 +568,16 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED"):
     else:
         
         date_to = datetime.now().strftime('%Y-%m-%d')
-        url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=0&pageSize="
+        url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}"
         orders = []
-        
+        # print("working here")
         response = requests.get(url, headers=headers)
+        # print(response.text)
         if response.status_code == 200:
             
             orders += response.json()['orders']
-            while "paging" in response.json().keys() and  "nextPageToken" in response.json().keys()["paging"]:
-                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&supplierShipmentDateFrom=&supplierShipmentDateTo=&updatedAtFrom=&updatedAtTo=&dispatchType=&fake=&hasCis=&onlyWaitingForCancellationApprove=&onlyEstimatedDelivery=&buyerType=&page=&pageSize="
+            while len(response.json()['orders']) >= limit:
+                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}"
                 response = requests.get(url, headers=headers)
                 if response.status_code == 200:
                     orders += response.json()["orders"]
