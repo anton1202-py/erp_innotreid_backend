@@ -596,7 +596,7 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED", limit=5
 
 def find_republic_name(region):
 
-    if  "REPUBLIC" in region.get("type", ""):
+    if  "REPUBLIC" == region.get("type", ""):
         return region.get("name")
     
     parent = region.get("parent")
