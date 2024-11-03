@@ -8,7 +8,7 @@ from celery import shared_task
 from django.db.models import F
 from apps.marketplaceservice.models import Ozon, Wildberries, YandexMarket
 from apps.product.models import Product, ProductSale, ProductOrder, ProductStock, Warehouse, WarehouseForStock, Claster, \
-      WarehouseYandex
+      WarehouseYandex, WarehouseOzon
 from config.celery import app
 from apps.company.location.get_warehouse_name_from_yandex import get_location_info
 from celery_once import QueueOnce
@@ -260,12 +260,14 @@ def update_ozon_sales():
                 date = datetime.strptime(item['in_process_at'],"%Y-%m-%dT%H:%M:%SZ")
             sku = item['products'][0]['offer_id']
             
-            if "warehouse_name" in item["analytics_data"].keys():
-                warehouse_name = item["analytics_data"]['warehouse_name']
+            oblast_okrug_name = item["financial_data"]['cluster_to']
+            warehouse_name = WarehouseOzon.objects.filter(claster_to=oblast_okrug_name).first()
+            
+            if warehouse_name:
+                warehouse_name = warehouse_name.warehouse_name
             else:
                 continue
-            
-            oblast_okrug_name = item["financial_data"]['cluster_to']
+
             barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
             if not barcode:
                 continue
@@ -377,11 +379,13 @@ def update_ozon_orders():
                 date = datetime.strptime(date,"%Y-%m-%dT%H:%M:%SZ")
             sku = item['products'][0]['offer_id']
             
-            if "warehouse_name" in item["analytics_data"].keys():
-                warehouse_name = item["analytics_data"]['warehouse_name']
+            oblast_okrug_name = item["financial_data"]['cluster_to']
+
+            warehouse_name = WarehouseOzon.objects.filter(claster_to=oblast_okrug_name).first()
+            if warehouse_name:
+                warehouse_name = warehouse_name.warehouse_name
             else:
                 continue
-            oblast_okrug_name = item["financial_data"]['cluster_to']
 
             barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
             if not barcode:

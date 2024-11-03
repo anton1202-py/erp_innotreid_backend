@@ -49,6 +49,7 @@ def update_recomendations(self,company):
             shelf_stock = 0
         sorting = sorting_stocks.filter(product__vendor_code=product.vendor_code).aggregate(total=Sum("unsorted"))["total"]
         in_production = InProduction.objects.filter(product__vendor_code=product.vendor_code,company=company)
+        
         if in_production.exists():
             in_production = in_production.aggregate(total=Sum("manufacture"))["total"]
         else:
@@ -129,7 +130,7 @@ def update_recomendation_supplier(self,company):
             stock_w = WarehouseForStock.objects.filter(name__in=names)
             stock = 0
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to), warehouse=item_w, marketplace_type="wildberries")
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to), warehouse=item_w, marketplace_type="wildberries", company=company)
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity
@@ -183,7 +184,7 @@ def update_recomendation_supplier(self,company):
             stock = 0
             
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__gte=date_from,date__lte=date_to, warehouse=item_w, marketplace_type="ozon")
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__gte=date_from,date__lte=date_to, warehouse=item_w, marketplace_type="ozon", company=company)
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity
@@ -239,7 +240,7 @@ def update_recomendation_supplier(self,company):
             stock = 0
             
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to) ,warehouse=item_w, marketplace_type="yandexmarket")
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__range=(date_from,date_to) ,warehouse=item_w, marketplace_type="yandexmarket", company=company)
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity
