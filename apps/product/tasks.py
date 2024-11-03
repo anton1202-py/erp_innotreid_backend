@@ -534,6 +534,7 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED", limit=5
                 }
     
     difrence = (datetime.now() - datetime.strptime(date_from,"%Y-%m-%d")).days
+    
     if difrence == 365:
         orders = []
         months = []
@@ -564,12 +565,13 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED", limit=5
             
             orders += response.json()["orders"]
             while len(response.json()['orders']) >= limit:
-                page_token = response.json()['paging']['nextPageToken']
-                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}&page_token={page_token}"
-                response = requests.get(url, headers=headers)
-                if response.status_code == 200:
-                    orders += response.json()["orders"]
-    
+                if 'paging' in response.json().keys() and 'nextPageToken' in response.json()['paging']:
+                    page_token = response.json()['paging']['nextPageToken']
+                    url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}&page_token={page_token}"
+                    response = requests.get(url, headers=headers)
+                    if response.status_code == 200:
+                        orders += response.json()["orders"]
+        
     else:
         
         date_to = datetime.now().strftime('%Y-%m-%d')
@@ -581,9 +583,10 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED", limit=5
            
             orders += response.json()['orders']
             while len(response.json()['orders']) >= limit:
-                page_token = response.json()['paging']['nextPageToken']
-                url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}&page_token={page_token}"
-                response = requests.get(url, headers=headers)
+                if 'paging' in response.json().keys() and 'nextPageToken' in response.json()['paging']:
+                    page_token = response.json()['paging']['nextPageToken']
+                    url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}&page_token={page_token}"
+                    response = requests.get(url, headers=headers)
                 if response.status_code == 200:
                     orders += response.json()["orders"]
             # print(len(orders))
