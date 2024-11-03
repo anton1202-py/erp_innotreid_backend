@@ -252,6 +252,7 @@ def update_ozon_sales():
         results = fbo_orders + fbs_orders
 
         for item in results:
+           
             try:
                 date = datetime.strptime(item['in_process_at'],"%Y-%m-%dT%H:%M:%S.%fZ")
             except:
@@ -351,6 +352,7 @@ def update_ozon_orders():
         date_from = False
     if not date_from:
         date_from = (datetime.now()-timedelta(days=365)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    
     for ozon in Ozon.objects.all():
         company = ozon.company
         api_token = ozon.api_token
@@ -368,7 +370,10 @@ def update_ozon_orders():
         for item in results:
             
             date = item['created_at']
-            date = datetime.strptime(date,"%Y-%m-%dT%H:%M:%S.%fZ")
+            try:
+                date = datetime.strptime(date,"%Y-%m-%dT%H:%M:%S.%fZ")
+            except:
+                date = datetime.strptime(date,"%Y-%m-%dT%H:%M:%SZ")
             sku = item['products'][0]['offer_id']
             
             if "warehouse_name" in item["analytics_data"].keys():
@@ -535,7 +540,7 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED", limit=5
     
     difrence = (datetime.now() - datetime.strptime(date_from,"%Y-%m-%d")).days
     
-    if difrence == 365:
+    if difrence >= 200:
         orders = []
         months = []
         
