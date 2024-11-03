@@ -564,11 +564,11 @@ def get_yandex_orders(api_key, date_from, client_id, status="DELIVERED", limit=1
         # print(months)  
         
         for date_from, date_to in months:
-            print("working for cicle")
+            # print("working for cicle")
             url = f"https://api.partner.market.yandex.ru/campaigns/{client_id}/orders?orderIds=&status={status}&substatus=&fromDate={date_from}&toDate={date_to}&limit={limit}"
             # print(url)
             response = requests.get(url, headers=headers)
-            print(response.status_code)
+            # print(response.status_code)
             
             orders += response.json()["orders"]
             while 'paging' in response.json().keys() and 'nextPageToken' in response.json()['paging']:
@@ -1012,19 +1012,19 @@ def update_yandex_stocks():
 @app.task(base=QueueOnce, once={'graceful': True})
 def synchronous_algorithm():
     
-    # update_wildberries_sales.delay()
-    # update_ozon_sales.delay()
+    update_wildberries_sales.delay()
+    update_ozon_sales.delay()
     update_yandex_market_sales.delay()
     
-    # update_wildberries_orders.delay()
-    # update_ozon_orders.delay()
-    # update_yandex_market_orders.delay()
+    update_wildberries_orders.delay()
+    update_ozon_orders.delay()
+    update_yandex_market_orders.delay()
     
-    # update_wildberries_stocks.delay()
+    update_wildberries_stocks.delay()
     
-    # update_ozon_stocks.delay()
+    update_ozon_stocks.delay()
     
-    # update_yandex_stocks.delay()
+    update_yandex_stocks.delay()
 
     return True
 
