@@ -255,14 +255,14 @@ class CompanyOrdersSerializer(serializers.ModelSerializer):
 
         if (date_to - date_from).days == 0:
             date = date_from
-            date_range = queryset.values("warehouse")
+            date_range = queryset.values("warehouse", "warehouse__oblast_okrug_name")
             for warehouse in date_range:
-                day_sales = queryset.filter(date__date=date, warehouse=warehouse).values('product__vendor_code').annotate(total_sales=Count('id'))
+                day_sales = queryset.filter(date__date=date, warehouse=warehouse['warehouse']).values('product__vendor_code').annotate(total_sales=Count('id'))
                 for sale in day_sales:
                     product_code = sale['product__vendor_code']
                     if product_code not in results:
-                        results[product_code] = { warehouse.oblast_okrug_name: 0 for date in date_range}
-                    results[product_code][ warehouse.oblast_okrug_name] = sale['total_sales']
+                        results[product_code] = { warehouse["warehouse__oblast_okrug_name"]: 0 for date in date_range}
+                    results[product_code][ warehouse["warehouse__oblast_okrug_name"]] = sale['total_sales']
         
         else:
             for date in date_range:
