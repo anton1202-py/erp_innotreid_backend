@@ -179,12 +179,13 @@ def update_recomendation_supplier(self,company):
             sale = ProductOrder.objects.filter(product__vendor_code=item.vendor_code, warehouse__oblast_okrug_name=oblast_okrug_name, date__range=(date_from,date_to),marketplace_type="ozon",company=company).count()
             
             shelf = Shelf.objects.filter(product__vendor_code=item.vendor_code)
-            names = Warehouse.objects.filter(oblast_okrug_name=oblast_okrug_name).values("name")
-            stock_w = WarehouseForStock.objects.filter(name__in=names)
+            stock_w = WarehouseOzon.objects.filter(claster_to=oblast_okrug_name)
+            
             stock = 0
             
             for item_w in stock_w:
-                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__gte=date_from,date__lte=date_to, warehouse=item_w, marketplace_type="ozon", company=company)
+                
+                P_S = ProductStock.objects.filter(product__vendor_code=item.vendor_code, date__gte=date_from,date__lte=date_to, warehouse__name=item_w.warehouse_name, marketplace_type="ozon", company=company)
                 if P_S.exists():
                     P_S = P_S.latest("date")
                     stock += P_S.quantity

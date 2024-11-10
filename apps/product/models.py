@@ -104,7 +104,6 @@ class ProductOrder(models.Model):
         verbose_name = "Product order"
         verbose_name_plural = "Product orders"
         ordering = ('product__vendor_code',)
-        unique_together = ('product', 'company', 'date', 'warehouse', 'marketplace_type')
 
 class ProductStock(models.Model):
     

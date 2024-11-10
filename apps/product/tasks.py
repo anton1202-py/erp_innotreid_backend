@@ -203,13 +203,12 @@ def get_paid_orders(url, headers, date_from, status="delivered",status_2="paid")
     results = []
     response = requests.post(url, headers=headers, json=data)
     
-    while response.json().get('result', False):
+    while "result" in response.json().keys() and response.json()["result"]:
         results += response.json().get('result', [])
         data['offset'] += 1000
         response = requests.post(url, headers=headers, json=data)
     
     return results
-
 
 def get_barcode(vendor_code, api_key, client_id):
     body = {"offer_id": vendor_code}
@@ -234,9 +233,11 @@ def update_ozon_sales():
     FBS_URL = "https://api-seller.ozon.ru/v2/posting/fbs/list"
     
     for ozon in Ozon.objects.all():
+        
         company = ozon.company
         api_token = ozon.api_token
         client_id = ozon.client_id
+        
         headers = {
             'Client-Id': client_id,
             'Api-Key': api_token,
@@ -258,90 +259,93 @@ def update_ozon_sales():
                 date = datetime.strptime(item['in_process_at'],"%Y-%m-%dT%H:%M:%S.%fZ")
             except:
                 date = datetime.strptime(item['in_process_at'],"%Y-%m-%dT%H:%M:%SZ")
-            sku = item['products'][0]['offer_id']
             
-            oblast_okrug_name = item["financial_data"]['cluster_to']
-            warehouse_name = WarehouseOzon.objects.filter(claster_to=oblast_okrug_name).first()
-            
-            if warehouse_name:
-                warehouse_name = warehouse_name.warehouse_name
-            else:
-                continue
+            for product_item in item['products']:
+                sku = product_item['offer_id']
+                
+                oblast_okrug_name = item["financial_data"]['cluster_to']
+                warehouse_name = WarehouseOzon.objects.filter(claster_to=oblast_okrug_name).first()
+                
+                # if warehouse_name:
+                #     warehouse_name = warehouse_name.warehouse_name
+                # else:
+                #     continue
 
-            barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
-            if not barcode:
-                continue
-            
-            product = Product.objects.filter(barcode=barcode)
-            warehouse, created_w = Warehouse.objects.get_or_create(
-                name = warehouse_name,
-                oblast_okrug_name = oblast_okrug_name
-            )
-
-            if product.exists():
-                
-                wildberries_product = product.filter(marketplace_type="wildberries")
-                if wildberries_product.exists():
-                    W_product = wildberries_product.first()
-                else:
-                    W_product = False
-                
-                ozon_product = product.filter(marketplace_type='ozon')
-                if ozon_product.exists():
-                        ozon_product = ozon_product.first()
-                else:
-                    ozon_product = False
-                
-                if (not ozon_product) and (not W_product):
-                    product = Product.objects.create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
-                    product_sale_o = ProductSale.objects.create(product=product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
+                if not barcode:
                     continue
                 
-                elif ozon_product and W_product:
-                    product_sale_w = ProductSale.objects.filter(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
-                    product_sale_o = ProductSale.objects.filter(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                product = Product.objects.filter(barcode=barcode)
+                warehouse, created_w = Warehouse.objects.get_or_create(
+                    name = oblast_okrug_name,
+                    oblast_okrug_name = oblast_okrug_name
+                )
+
+                if product.exists():
                     
-                    if product_sale_w.exists():
-                        continue
-                    
-                    elif product_sale_o.exists():
-                        product_sale_o = product_sale_o.first()
-                        product_sale_o.product = W_product
-                        product_sale_o.save()
-                        continue
-                    
+                    wildberries_product = product.filter(marketplace_type="wildberries")
+                    if wildberries_product.exists():
+                        W_product = wildberries_product.first()
                     else:
+                        W_product = False
+                    
+                    ozon_product = product.filter(marketplace_type='ozon')
+                    if ozon_product.exists():
+                            ozon_product = ozon_product.first()
+                    else:
+                        ozon_product = False
+                    
+                    if (not ozon_product) and (not W_product):
+                        product = Product.objects.create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
+                        product_sale_o = ProductSale.objects.create(product=product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                        continue
+                    
+                    elif ozon_product and W_product:
+                        product_sale_w = ProductSale.objects.filter(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                        product_sale_o = ProductSale.objects.filter(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                        
+                        if product_sale_w.exists():
+                            continue
+                        
+                        elif product_sale_o.exists():
+                            product_sale_o = product_sale_o.first()
+                            product_sale_o.product = W_product
+                            product_sale_o.save()
+                            continue
+                        
+                        else:
+                            try:
+                                product_sale_o = ProductSale.objects.create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                            except:
+                                continue
+                    
+                    elif ozon_product and (not W_product):
+                        product_sale_o = ProductSale.objects.get_or_create(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                    
+                    elif W_product and (not ozon_product):
+                        product_sale_o = ProductSale.objects.get_or_create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                
+                else:
+                    product, created_p = Product.objects.get_or_create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
+                
+                    if not ProductSale.objects.filter(
+                        product=product,
+                        company=company,
+                        date=date,
+                        warehouse=warehouse,
+                        marketplace_type = "ozon"
+                    ).exists():
                         try:
-                            product_sale_o = ProductSale.objects.create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                            product_sale = ProductSale.objects.create(
+                                product=product,
+                                company=company,
+                                date=date,
+                                warehouse=warehouse,
+                                marketplace_type = "ozon"
+                            )
                         except:
                             continue
-                
-                elif ozon_product and (not W_product):
-                    product_sale_o = ProductSale.objects.get_or_create(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
-                
-                elif W_product and (not ozon_product):
-                    product_sale_o = ProductSale.objects.get_or_create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
-            
-            else:
-                product, created_p = Product.objects.get_or_create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
-            
-                if not ProductSale.objects.filter(
-                    product=product,
-                    company=company,
-                    date=date,
-                    warehouse=warehouse,
-                    marketplace_type = "ozon"
-                ).exists():
-                    try:
-                        product_sale = ProductSale.objects.create(
-                            product=product,
-                            company=company,
-                            date=date,
-                            warehouse=warehouse,
-                            marketplace_type = "ozon"
-                        )
-                    except:
-                        continue
+                date += timedelta(seconds=1)
                  
 @app.task(base=QueueOnce, once={'graceful': True})
 def update_ozon_orders():
@@ -350,10 +354,8 @@ def update_ozon_orders():
     FBS_URL = "https://api-seller.ozon.ru/v2/posting/fbs/list"
     
     try:
-        date_from = ProductOrder.objects.filter(marketplace_type="ozon").latest('date').date.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        date_from = (ProductOrder.objects.filter(marketplace_type="ozon").latest('date').date + timedelta(seconds=1)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
     except:
-        date_from = False
-    if not date_from:
         date_from = (datetime.now()-timedelta(days=365)).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
     
     for ozon in Ozon.objects.all():
@@ -366,8 +368,8 @@ def update_ozon_orders():
             'Content-Type': 'application/json'
         }
 
-        fbo_orders = get_paid_orders(FBO_URL,headers,date_from,"", "")
-        fbs_orders = get_paid_orders(FBS_URL,headers,date_from, "","")
+        fbo_orders = get_paid_orders(FBO_URL,headers,date_from)
+        fbs_orders = get_paid_orders(FBS_URL,headers,date_from)
         
         results = fbo_orders + fbs_orders 
         for item in results:
@@ -377,92 +379,93 @@ def update_ozon_orders():
                 date = datetime.strptime(date,"%Y-%m-%dT%H:%M:%S.%fZ")
             except:
                 date = datetime.strptime(date,"%Y-%m-%dT%H:%M:%SZ")
-            sku = item['products'][0]['offer_id']
-            
-            oblast_okrug_name = item["financial_data"]['cluster_to']
+            for product_item in item['products']:
+                sku = product_item['offer_id']
+                
+                oblast_okrug_name = item["financial_data"]['cluster_to']
 
-            warehouse_name = WarehouseOzon.objects.filter(claster_to=oblast_okrug_name).first()
-            if warehouse_name:
-                warehouse_name = warehouse_name.warehouse_name
-            else:
-                continue
+                # warehouse_name = WarehouseOzon.objects.filter(claster_to=oblast_okrug_name).first()
+                # if warehouse_name:
+                #     warehouse_name = warehouse_name.warehouse_name
+                # else:
+                #     continue
 
-            barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
-            if not barcode:
-                continue
-            
-            product = Product.objects.filter(barcode=barcode)
-            warehouse, created_w = Warehouse.objects.get_or_create(
-                name = warehouse_name,
-                oblast_okrug_name = oblast_okrug_name
-            )
-            
-            if product.exists():
-                
-                wildberries_product = product.filter(marketplace_type="wildberries")
-                if wildberries_product.exists():
-                    W_product = wildberries_product.first()
-                else:
-                    W_product = False
-                
-                ozon_product = product.filter(marketplace_type='ozon')
-                if ozon_product.exists():
-                        ozon_product = ozon_product.first()
-                else:
-                    ozon_product = False
-                
-                if (not ozon_product) and (not W_product):
-                    product = Product.objects.create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
-                    try:
-                        product_sale_o = ProductOrder.objects.create(product=product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
-                    except:
-                        continue
+                barcode = get_barcode(vendor_code=sku, api_key=ozon.api_token,client_id=ozon.client_id)
+                if not barcode:
                     continue
                 
-                elif ozon_product and W_product:
-                    product_sale_w = ProductOrder.objects.filter(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
-                    product_sale_o = ProductOrder.objects.filter(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                product = Product.objects.filter(barcode=barcode)
+                warehouse, created_w = Warehouse.objects.get_or_create(
+                    name = oblast_okrug_name,
+                    oblast_okrug_name = oblast_okrug_name
+                )
+                
+                if product.exists():
                     
-                    if product_sale_w.exists():
-                        continue
-                    
-                    elif product_sale_o.exists():
-                        product_sale_o = product_sale_o.first()
-                        product_sale_o.product = W_product
-                        product_sale_o.save()
-                        continue
-                    
+                    wildberries_product = product.filter(marketplace_type="wildberries")
+                    if wildberries_product.exists():
+                        W_product = wildberries_product.first()
                     else:
+                        W_product = False
+                    
+                    ozon_product = product.filter(marketplace_type='ozon')
+                    if ozon_product.exists():
+                            ozon_product = ozon_product.first()
+                    else:
+                        ozon_product = False
+                    
+                    if (not ozon_product) and (not W_product):
+                        product = Product.objects.create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
                         try:
-                            product_sale_o = ProductOrder.objects.create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                            product_sale_o = ProductOrder.objects.create(product=product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
                         except:
                             continue
-                
-                elif ozon_product and (not W_product):
-                    try:
-                        product_sale_o = ProductOrder.objects.get_or_create(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
-                    except:
                         continue
+                    
+                    elif ozon_product and W_product:
+                        product_sale_w = ProductOrder.objects.filter(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                        product_sale_o = ProductOrder.objects.filter(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                        
+                        if product_sale_w.exists():
+                            continue
+                        
+                        elif product_sale_o.exists():
+                            product_sale_o = product_sale_o.first()
+                            product_sale_o.product = W_product
+                            product_sale_o.save()
+                            continue
+                        
+                        else:
+                            try:
+                                product_sale_o = ProductOrder.objects.create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                            except:
+                                continue
+                    
+                    elif ozon_product and (not W_product):
+                        try:
+                            product_sale_o = ProductOrder.objects.get_or_create(product=ozon_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                        except:
+                            continue
 
-                elif W_product and (not ozon_product):
-                    product_sale_o = ProductOrder.objects.get_or_create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
-            else:
-                product, created_p = Product.objects.get_or_create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
-            
-                if not ProductOrder.objects.filter(
-                    product=product,
-                    company=company,
-                    date=date,
-                    warehouse=warehouse,
-                    marketplace_type = "ozon"
-                ).exists():
-                    product_sale = ProductOrder.objects.create(
+                    elif W_product and (not ozon_product):
+                        product_sale_o = ProductOrder.objects.get_or_create(product=W_product,company=company,date=date,warehouse=warehouse,marketplace_type="ozon")
+                else:
+                    product, created_p = Product.objects.get_or_create(vendor_code=sku, marketplace_type="ozon", barcode=barcode)
+                
+                    if not ProductOrder.objects.filter(
                         product=product,
                         company=company,
                         date=date,
                         warehouse=warehouse,
                         marketplace_type = "ozon"
-                    )
+                    ).exists():
+                        product_sale = ProductOrder.objects.create(
+                            product=product,
+                            company=company,
+                            date=date,
+                            warehouse=warehouse,
+                            marketplace_type = "ozon"
+                        )
             
 @app.task(base=QueueOnce, once={'graceful': True})
 def update_ozon_stocks():
@@ -494,7 +497,14 @@ def update_ozon_stocks():
         for item in results:
             
             vendor_code = item['item_code']
-            warehouse_name = item['warehouse_name']
+            warehouse_name: str = item['warehouse_name']
+            # claster = WarehouseOzon.objects.filter(warehouse_name=warehouse_name)
+            
+            # if claster.exists():
+            #     warehouse_name = claster.first().claster_to
+            # else:
+            #     continue
+
             quantity = item['free_to_sell_amount']
             
             date = datetime.now()
